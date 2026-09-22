@@ -8,8 +8,11 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint . --max-warnings 0",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "smoke:visual": "node scripts/visual-smoke.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -31,12 +34,13 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.4.0",
+    "playwright-core": "^1.63.0",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.44.1",
     "vite": "^7.1.7",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.1"
   }
 }

@@ -1,21 +1,348 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { devices as mockDevices, filesFor, telemetryFor } from '../mocks/data'
-import { demoMode, supabase } from '../services/supabase'
+import { demoMode, readOnlyMode, supabase } from '../services/supabase'
 import type { Device, DeviceFile, RangeKey, Reading } from '../types'
 import { rangeHours } from '../utils'
+import { usePreferences } from './usePreferences'
 
-type AsyncState<T>={data:T;loading:boolean;error:string|null;reload:()=>void}
-export interface FleetFile { file: DeviceFile; device: Pick<Device,'id'|'code'|'name'> }
-interface DeviceRow { id:string; device_code:string; display_name:string|null; description:string|null; firmware_version:string|null; last_seen:string|null; wifi_rssi:number|null; sd_ok:boolean|null; sps30_ok:boolean|null; sht3x_ok:boolean|null; rtc_ok:boolean|null; current_filename:string|null; current_file_size:number|null }
-interface TelemetryRow { device_id:string; timestamp:string; pm25:number|null; pm10:number|null; temperature_c:number|null; rh:number|null }
+export interface AsyncState<T> {
+  data: T
+  loading: boolean
+  error: string | null
+  reload: () => void
+}
+export interface FleetFile {
+  file: DeviceFile
+  device: Pick<Device, 'id' | 'code' | 'name' | 'lastSeen'>
+}
+export interface DeviceFilesState extends AsyncState<DeviceFile[]> {
+  requestCatalog: () => Promise<string>
+}
 
-const fallbackReading=(timestamp:string):Reading=>({timestamp,pm25:null,pm10:null,temperature:null,rh:null})
-const mapDevice=(row:DeviceRow,latest?:TelemetryRow):Device=>({id:row.id,code:row.device_code,name:row.display_name??row.device_code,location:row.description??'Location not specified',firmware:row.firmware_version??'Unknown',lastSeen:row.last_seen??new Date(0).toISOString(),rssi:row.wifi_rssi??-100,health:{sd:row.sd_ok??false,sps30:row.sps30_ok??false,sht3x:row.sht3x_ok??false,rtc:row.rtc_ok??false},latest:latest?{timestamp:latest.timestamp,pm25:latest.pm25,pm10:latest.pm10,temperature:latest.temperature_c,rh:latest.rh}:fallbackReading(row.last_seen??new Date(0).toISOString()),currentFilename:row.current_filename??'No active file',currentFileSize:row.current_file_size??0})
+interface DeviceRow {
+  id: string
+  device_code: string
+  display_name: string | null
+  description: string | null
+  firmware_version: string | null
+  last_seen: string | null
+  wifi_rssi: number | null
+  sd_ok: boolean | null
+  sps30_ok: boolean | null
+  sht3x_ok: boolean | null
+  rtc_ok: boolean | null
+  current_filename: string | null
+  current_file_size: number | null
+}
+interface TelemetryRow {
+  device_id: string
+  timestamp: string
+  pm25: number | null
+  pm10: number | null
+  temperature_c: number | null
+  rh: number | null
+}
 
-export function useDevices():AsyncState<Device[]>{const [data,setData]=useState<Device[]>(demoMode?mockDevices:[]);const [loading,setLoading]=useState(!demoMode);const [error,setError]=useState<string|null>(null);const [version,setVersion]=useState(0);useEffect(()=>{if(!supabase)return;const client=supabase;let alive=true;void(async()=>{setLoading(true);const {data:rows,error:e}=await client.from('devices').select('*').order('device_code');if(e){if(alive)setError(e.message);setLoading(false);return}const typed=(rows??[]) as DeviceRow[];const latest=await Promise.all(typed.map(async d=>{const {data:r}=await client.from('telemetry_5min').select('device_id,timestamp,pm25,pm10,temperature_c,rh').eq('device_id',d.id).order('timestamp',{ascending:false}).limit(1).maybeSingle();return r as TelemetryRow|null}));if(alive){setData(typed.map((d,i)=>mapDevice(d,latest[i]??undefined)));setLoading(false)}})();return()=>{alive=false}},[version]);return{data,loading,error,reload:()=>setVersion(v=>v+1)}}
+const fallbackReading = (timestamp: string): Reading => ({
+  timestamp,
+  pm25: null,
+  pm10: null,
+  temperature: null,
+  rh: null,
+})
+const mapDevice = (row: DeviceRow, latest?: TelemetryRow): Device => ({
+  id: row.id,
+  code: row.device_code,
+  name: row.display_name ?? row.device_code,
+  location: row.description ?? 'Location not specified',
+  firmware: row.firmware_version ?? 'Unknown',
+  lastSeen: row.last_seen ?? new Date(0).toISOString(),
+  rssi: row.wifi_rssi ?? -100,
+  health: {
+    sd: row.sd_ok ?? false,
+    sps30: row.sps30_ok ?? false,
+    sht3x: row.sht3x_ok ?? false,
+    rtc: row.rtc_ok ?? false,
+  },
+  latest: latest
+    ? {
+        timestamp: latest.timestamp,
+        pm25: latest.pm25,
+        pm10: latest.pm10,
+        temperature: latest.temperature_c,
+        rh: latest.rh,
+      }
+    : fallbackReading(row.last_seen ?? new Date(0).toISOString()),
+  currentFilename: row.current_filename ?? 'No active file',
+  currentFileSize: row.current_file_size ?? 0,
+})
 
-export function useTelemetry(device:Device,range:RangeKey):AsyncState<Reading[]>{const [data,setData]=useState<Reading[]>(()=>demoMode?telemetryFor(device,range):[]);const [loading,setLoading]=useState(!demoMode);const [error,setError]=useState<string|null>(null);const [version,setVersion]=useState(0);useEffect(()=>{if(demoMode){setData(telemetryFor(device,range));return}if(!supabase)return;let alive=true;void(async()=>{setLoading(true);const since=new Date(Date.now()-rangeHours[range]*3600000).toISOString();const {data:rows,error:e}=await supabase.from('telemetry_5min').select('device_id,timestamp,pm25,pm10,temperature_c,rh').eq('device_id',device.id).gte('timestamp',since).order('timestamp');if(alive){if(e)setError(e.message);else setData(((rows??[]) as TelemetryRow[]).map(r=>({timestamp:r.timestamp,pm25:r.pm25,pm10:r.pm10,temperature:r.temperature_c,rh:r.rh})));setLoading(false)}})();return()=>{alive=false}},[device,range,version]);return{data,loading,error,reload:()=>setVersion(v=>v+1)}}
+function useReloadVersion(autoRefresh = true) {
+  const [version, setVersion] = useState(0)
+  const { preferences } = usePreferences()
+  const reload = useCallback(() => setVersion((value) => value + 1), [])
+  useEffect(() => {
+    if (!autoRefresh || !preferences.realtime) return
+    const timer = window.setInterval(reload, preferences.refreshSeconds * 1000)
+    return () => window.clearInterval(timer)
+  }, [autoRefresh, preferences.realtime, preferences.refreshSeconds, reload])
+  return { version, reload }
+}
 
-export function useDeviceFiles(device:Device):AsyncState<DeviceFile[]>{const [data,setData]=useState<DeviceFile[]>(demoMode?filesFor(device.code):[]);const [loading,setLoading]=useState(!demoMode);const [error,setError]=useState<string|null>(null);const [version,setVersion]=useState(0);useEffect(()=>{if(!supabase)return;let alive=true;void(async()=>{setLoading(true);const {data:rows,error:e}=await supabase.from('device_files').select('id,filename,size_bytes,modified_at').eq('device_id',device.id).order('modified_at',{ascending:false});if(alive){if(e)setError(e.message);else setData((rows??[]).map(r=>({id:String(r.id),filename:String(r.filename),size:Number(r.size_bytes),modifiedAt:String(r.modified_at)})));setLoading(false)}})();return()=>{alive=false}},[device,version]);return{data,loading,error,reload:()=>setVersion(v=>v+1)}}
+export function useDevices(): AsyncState<Device[]> {
+  const [data, setData] = useState<Device[]>(demoMode ? mockDevices : [])
+  const [loading, setLoading] = useState(!demoMode)
+  const [error, setError] = useState<string | null>(null)
+  const { version, reload } = useReloadVersion()
+  useEffect(() => {
+    if (demoMode) {
+      const offsets = [0.3, 1.2, 47, 6]
+      setData(
+        mockDevices.map((device, index) => ({
+          ...device,
+          lastSeen: new Date(Date.now() - (offsets[index] ?? 1) * 60000).toISOString(),
+        })),
+      )
+      setLoading(false)
+      return
+    }
+    if (!supabase) return
+    const client = supabase
+    let alive = true
+    void (async () => {
+      setLoading(true)
+      setError(null)
+      const { data: rows, error: deviceError } = await client
+        .from('devices')
+        .select(
+          'id,device_code,display_name,description,firmware_version,last_seen,wifi_rssi,sd_ok,sps30_ok,sht3x_ok,rtc_ok,current_filename,current_file_size',
+        )
+        .order('device_code')
+      if (deviceError) {
+        if (alive) {
+          setError('The device registry is temporarily unavailable.')
+          setLoading(false)
+        }
+        return
+      }
+      const typed = (rows ?? []) as DeviceRow[]
+      const latest = await Promise.all(
+        typed.map(async (device) => {
+          const { data: reading } = await client
+            .from('telemetry_5min')
+            .select('device_id,timestamp,pm25,pm10,temperature_c,rh')
+            .eq('device_id', device.id)
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          return reading as TelemetryRow | null
+        }),
+      )
+      if (alive) {
+        setData(typed.map((device, index) => mapDevice(device, latest[index] ?? undefined)))
+        setLoading(false)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [version])
+  return { data, loading, error, reload }
+}
 
-export function useAllFiles():AsyncState<FleetFile[]>{const demo=mockDevices.flatMap(device=>filesFor(device.code).map(file=>({file,device:{id:device.id,code:device.code,name:device.name}})));const [data,setData]=useState<FleetFile[]>(demoMode?demo:[]);const [loading,setLoading]=useState(!demoMode);const [error,setError]=useState<string|null>(null);const [version,setVersion]=useState(0);useEffect(()=>{if(!supabase)return;let alive=true;void(async()=>{setLoading(true);const {data:rows,error:e}=await supabase.from('device_files').select('id,filename,size_bytes,modified_at,devices!inner(id,device_code,display_name)').order('modified_at',{ascending:false});if(alive){if(e)setError(e.message);else setData((rows??[]).map(row=>{const joined=row.devices as unknown as {id:string;device_code:string;display_name:string|null};return{file:{id:String(row.id),filename:String(row.filename),size:Number(row.size_bytes),modifiedAt:String(row.modified_at)},device:{id:joined.id,code:joined.device_code,name:joined.display_name??joined.device_code}}}));setLoading(false)}})();return()=>{alive=false}},[version]);return{data,loading,error,reload:()=>setVersion(v=>v+1)}}
+export function useTodayTelemetryCount(): AsyncState<number> {
+  const [data, setData] = useState(demoMode ? 1096 : 0)
+  const [loading, setLoading] = useState(!demoMode)
+  const [error, setError] = useState<string | null>(null)
+  const { version, reload } = useReloadVersion()
+  useEffect(() => {
+    if (!supabase) return
+    let alive = true
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    void supabase
+      .from('telemetry_5min')
+      .select('id', { count: 'exact', head: true })
+      .gte('timestamp', start.toISOString())
+      .then(({ count, error: countError }) => {
+        if (!alive) return
+        if (countError) setError("Today's telemetry count is unavailable.")
+        else setData(count ?? 0)
+        setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [version])
+  return { data, loading, error, reload }
+}
+
+export function useTelemetry(device: Device | null, range: RangeKey): AsyncState<Reading[]> {
+  const initial = demoMode && device ? telemetryFor(device, range) : []
+  const [data, setData] = useState<Reading[]>(initial)
+  const [loading, setLoading] = useState(!demoMode)
+  const [error, setError] = useState<string | null>(null)
+  const { version, reload } = useReloadVersion()
+  useEffect(() => {
+    if (demoMode && device) {
+      setData(telemetryFor(device, range))
+      setLoading(false)
+      return
+    }
+    if (!supabase || !device) return
+    let alive = true
+    setLoading(true)
+    setError(null)
+    const since = new Date(Date.now() - rangeHours[range] * 3600000).toISOString()
+    void supabase
+      .from('telemetry_5min')
+      .select('device_id,timestamp,pm25,pm10,temperature_c,rh')
+      .eq('device_id', device.id)
+      .gte('timestamp', since)
+      .order('timestamp')
+      .then(({ data: rows, error: telemetryError }) => {
+        if (!alive) return
+        if (telemetryError) setError('Measurements could not be loaded. Check your connection and retry.')
+        else
+          setData(
+            ((rows ?? []) as TelemetryRow[]).map((reading) => ({
+              timestamp: reading.timestamp,
+              pm25: reading.pm25,
+              pm10: reading.pm10,
+              temperature: reading.temperature_c,
+              rh: reading.rh,
+            })),
+          )
+        setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [device, range, version])
+  return { data, loading, error, reload }
+}
+
+export function useDeviceFiles(device: Device | null): DeviceFilesState {
+  const initial = demoMode && device ? filesFor(device.code) : []
+  const [data, setData] = useState<DeviceFile[]>(initial)
+  const [loading, setLoading] = useState(!demoMode)
+  const [error, setError] = useState<string | null>(null)
+  const { version, reload } = useReloadVersion(false)
+  useEffect(() => {
+    if (readOnlyMode && !demoMode) {
+      setData([])
+      setLoading(false)
+      setError(null)
+      return
+    }
+    if (demoMode && device) {
+      setData(filesFor(device.code))
+      setLoading(false)
+      return
+    }
+    if (!supabase || !device) return
+    let alive = true
+    setLoading(true)
+    setError(null)
+    void supabase
+      .from('device_files')
+      .select('id,filename,size_bytes,modified_at')
+      .eq('device_id', device.id)
+      .order('modified_at', { ascending: false })
+      .then(({ data: rows, error: fileError }) => {
+        if (!alive) return
+        if (fileError) setError('The logger file catalog is temporarily unavailable.')
+        else
+          setData(
+            (rows ?? []).map((row) => ({
+              id: String(row.id),
+              filename: String(row.filename),
+              size: Number(row.size_bytes),
+              modifiedAt: row.modified_at ? String(row.modified_at) : new Date(0).toISOString(),
+            })),
+          )
+        setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [device, version])
+  const requestCatalog = useCallback(async () => {
+    if (!device) throw new Error('Device is not available')
+    if (readOnlyMode) throw new Error('File commands are disabled in read-only mode')
+    if (demoMode) {
+      await new Promise((resolve) => window.setTimeout(resolve, 700))
+      reload()
+      return 'Demo catalog refreshed'
+    }
+    if (!supabase) throw new Error('Supabase is not configured')
+    const { error: invokeError } = await supabase.functions.invoke('request-file-list', {
+      body: { device_id: device.id },
+    })
+    if (invokeError) throw new Error('Could not contact the command service. Please retry.')
+    ;[3000, 8000, 15000, 25000].forEach((delay) => window.setTimeout(reload, delay))
+    return 'File-list command queued'
+  }, [device, reload])
+  return { data, loading, error, reload, requestCatalog }
+}
+
+export function useAllFiles(): AsyncState<FleetFile[]> {
+  const demo = useMemo(
+    () =>
+      mockDevices.flatMap((device) =>
+        filesFor(device.code).map((file) => ({
+          file,
+          device: { id: device.id, code: device.code, name: device.name, lastSeen: device.lastSeen },
+        })),
+      ),
+    [],
+  )
+  const [data, setData] = useState<FleetFile[]>(demoMode ? demo : [])
+  const [loading, setLoading] = useState(!demoMode)
+  const [error, setError] = useState<string | null>(null)
+  const { version, reload } = useReloadVersion()
+  useEffect(() => {
+    if (!supabase) return
+    let alive = true
+    setLoading(true)
+    setError(null)
+    void supabase
+      .from('device_files')
+      .select('id,filename,size_bytes,modified_at,devices!inner(id,device_code,display_name,last_seen)')
+      .order('modified_at', { ascending: false })
+      .then(({ data: rows, error: fileError }) => {
+        if (!alive) return
+        if (fileError) setError('The fleet file catalog is temporarily unavailable.')
+        else
+          setData(
+            (rows ?? []).map((row) => {
+              const joined = row.devices as unknown as {
+                id: string
+                device_code: string
+                display_name: string | null
+                last_seen: string | null
+              }
+              return {
+                file: {
+                  id: String(row.id),
+                  filename: String(row.filename),
+                  size: Number(row.size_bytes),
+                  modifiedAt: row.modified_at ? String(row.modified_at) : new Date(0).toISOString(),
+                },
+                device: {
+                  id: joined.id,
+                  code: joined.device_code,
+                  name: joined.display_name ?? joined.device_code,
+                  lastSeen: joined.last_seen ?? new Date(0).toISOString(),
+                },
+              }
+            }),
+          )
+        setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [version])
+  return { data, loading, error, reload }
+}
