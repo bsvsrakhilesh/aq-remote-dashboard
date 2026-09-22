@@ -20,6 +20,8 @@ jobs:
           VITE_PUBLIC_READ_ONLY: ${{ vars.VITE_PUBLIC_READ_ONLY }}
           VITE_DEMO_MODE: ${{ vars.VITE_DEMO_MODE }}
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with: { path: dist }
   deploy:
