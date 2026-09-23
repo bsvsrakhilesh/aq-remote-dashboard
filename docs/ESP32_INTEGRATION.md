@@ -72,4 +72,4 @@ If a transfer cannot resume, POST `{"request_id":"<uuid>","error":"SD read faile
 
 The included signed-upload contract isolates storage behind one endpoint. Validate direct streaming with the chosen ESP32 HTTP client before field deployment: Supabase standard signed uploads are best for stable single-request transfers. For unreliable links or files beyond the configured 100 MB bucket limit, switch this endpoint to Supabase resumable/TUS upload or another multipart-capable object store without changing the browser workflow.
 
-Provision secrets separately from IITD Wi-Fi credentials. Generate at least 32 random bytes, store the bcrypt hash in `devices.secret_hash` using `crypt('<secret>', gen_salt('bf'))`, and flash the plaintext only onto its assigned logger.
+Provision secrets separately from IITD Wi-Fi credentials. Generate at least 32 random bytes, store the bcrypt hash in `devices.secret_hash` using `extensions.crypt('<secret>', extensions.gen_salt('bf'))`, and flash the plaintext only onto its assigned logger.
