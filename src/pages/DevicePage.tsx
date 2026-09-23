@@ -168,9 +168,14 @@ export function DevicePage() {
             <h2>Environmental telemetry</h2>
             <p>Five-minute summary data · gaps indicate unavailable readings</p>
           </div>
-          <div className="range-picker">
+          <div className="range-picker" role="group" aria-label="Telemetry period">
             {(['6h', '24h', '7d', '30d'] as RangeKey[]).map((item) => (
-              <button key={item} className={range === item ? 'active' : ''} onClick={() => setRange(item)}>
+              <button
+                key={item}
+                aria-pressed={range === item}
+                className={range === item ? 'active' : ''}
+                onClick={() => setRange(item)}
+              >
                 {item}
               </button>
             ))}

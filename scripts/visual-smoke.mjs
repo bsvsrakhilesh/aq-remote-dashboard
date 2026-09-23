@@ -7,14 +7,30 @@ const outputDir = '.smoke'
 await mkdir(outputDir, { recursive: true })
 const browser = await chromium.launch({ executablePath, headless: true })
 const failures = []
+const scenarios = []
+for (const theme of ['light', 'dark']) {
+  for (const width of [1440, 1024, 768, 390, 320]) {
+    for (const [name, path] of [
+      ['fleet', '/#/'],
+      ['device', '/#/device/AQ01'],
+      ['files', '/#/files'],
+      ['settings', '/#/settings'],
+    ]) {
+      scenarios.push({
+        name: `${theme}-${width}-${name}`,
+        view: name,
+        path,
+        theme,
+        viewport: { width, height: width > 800 ? 1000 : 844 },
+      })
+    }
+  }
+}
 
-for (const scenario of [
-  { name: 'desktop-fleet', path: '/#/', viewport: { width: 1440, height: 1000 } },
-  { name: 'mobile-device', path: '/#/device/AQ01', viewport: { width: 390, height: 844 } },
-  { name: 'mobile-files', path: '/#/files', viewport: { width: 390, height: 844 } },
-  { name: 'mobile-settings', path: '/#/settings', viewport: { width: 390, height: 844 } },
-]) {
+for (const scenario of scenarios) {
   const page = await browser.newPage({ viewport: scenario.viewport, deviceScaleFactor: 1 })
+  page.setDefaultTimeout(10000)
+  await page.addInitScript((theme) => localStorage.setItem('theme', theme), scenario.theme)
   page.on('pageerror', (error) => failures.push(`${scenario.name}: ${error.message}`))
   await page.goto(`${baseUrl}${scenario.path}`, { waitUntil: 'networkidle' })
   const dimensions = await page.evaluate(() => ({
@@ -26,13 +42,19 @@ for (const scenario of [
     failures.push(`${scenario.name}: horizontal overflow ${JSON.stringify(dimensions)}`)
   }
   try {
-    if (scenario.name === 'desktop-fleet') {
+    if (scenario.view === 'fleet') {
       const search = page.getByRole('textbox', { name: 'Search loggers' })
       await search.fill('no-such-logger')
       await page.getByText('No loggers found').waitFor()
       await search.fill('')
     }
-    if (scenario.name === 'mobile-device') {
+    if (scenario.view === 'device') {
+      for (const period of ['6h', '7d', '30d', '24h']) {
+        await page.getByRole('button', { name: period, exact: true }).click()
+        await page.locator('.chart-card').first().waitFor()
+        if ((await page.getByRole('button', { name: period, exact: true }).getAttribute('aria-pressed')) !== 'true')
+          throw new Error('Period selection is not announced')
+      }
       await page.getByRole('button', { name: 'Refresh list' }).click()
       await page.getByText('Demo catalog refreshed').waitFor()
       await page
@@ -40,23 +62,46 @@ for (const scenario of [
         .first()
         .click()
       await page.getByRole('dialog').waitFor()
+      if (
+        !(await page
+          .getByRole('button', { name: 'Close', exact: true })
+          .evaluate((el) => el === document.activeElement))
+      )
+        throw new Error('Dialog did not receive keyboard focus')
+      await page.keyboard.press('Shift+Tab')
+      if (!(await page.getByRole('dialog').evaluate((el) => el.contains(document.activeElement))))
+        throw new Error('Focus escaped dialog')
+      if (scenario.viewport.width === 390)
+        await page.screenshot({ path: `${outputDir}/${scenario.theme}-download-dialog.png` })
       await page.keyboard.press('Escape')
       await page.getByRole('dialog').waitFor({ state: 'hidden' })
     }
-    if (scenario.name === 'mobile-files') {
+    if (scenario.view === 'files') {
       await page.getByRole('textbox', { name: 'Search files' }).fill('2026-09-22')
       await page.getByRole('button', { name: 'Request' }).first().click()
       await page.getByRole('dialog').waitFor()
       await page.keyboard.press('Escape')
     }
-    if (scenario.name === 'mobile-settings') {
+    if (scenario.view === 'settings') {
       await page.getByRole('button', { name: 'Save preferences' }).click()
       await page.getByText('Preferences saved on this browser.').waitFor()
+    }
+    if (scenario.viewport.width <= 800) {
+      await page.getByRole('button', { name: 'Open menu' }).click()
+      await page.getByRole('link', { name: 'Overview', exact: true }).waitFor({ state: 'visible' })
+      await page.keyboard.press('Escape')
+      if ((await page.getByRole('button', { name: 'Open menu' }).getAttribute('aria-expanded')) !== 'false')
+        throw new Error('Mobile menu did not close')
     }
   } catch (error) {
     failures.push(`${scenario.name}: interaction failure ${error instanceof Error ? error.message : String(error)}`)
   }
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    window.scrollTo(0, 0)
+  })
   await page.screenshot({ path: `${outputDir}/${scenario.name}.png`, fullPage: true })
+  console.log(`Checked ${scenario.name}`)
   await page.close()
 }
 
@@ -65,4 +110,6 @@ if (failures.length) {
   console.error(failures.join('\n'))
   process.exit(1)
 }
-console.log('Visual smoke checks passed: fleet, device, files, downloads, settings, and 390px overflow')
+console.log(
+  `Visual checks passed: ${scenarios.length} layouts, both themes, 320–1440px, search, periods, dialogs, keyboard focus, mobile navigation, and preferences`,
+)

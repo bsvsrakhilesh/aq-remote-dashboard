@@ -12,8 +12,8 @@ import {
   Sun,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { demoMode, readOnlyMode, supabase } from '../services/supabase'
 
 const allNav = [
@@ -28,6 +28,44 @@ export function AppShell() {
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
   const [notices, setNotices] = useState(false)
   const [email, setEmail] = useState('Research team')
+  const sidebarRef = useRef<HTMLElement>(null)
+  const location = useLocation()
+  const currentPage = location.pathname.startsWith('/device/')
+    ? 'Device dashboard'
+    : (allNav.find((item) => item.to === location.pathname)?.label ?? 'Workspace')
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    setNotices(false)
+  }, [location.pathname])
+  useEffect(() => {
+    if (!menu) return
+    const previous = document.body.style.overflow
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    document.body.style.overflow = 'hidden'
+    sidebarRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenu(false)
+      if (event.key === 'Tab') {
+        const links = sidebarRef.current?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)')
+        if (!links?.length) return
+        const first = links[0]
+        const last = links[links.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    window.addEventListener('keydown', onEscape)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('keydown', onEscape)
+      trigger?.focus({ preventScroll: true })
+    }
+  }, [menu])
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
     localStorage.setItem('theme', dark ? 'dark' : 'light')
@@ -38,7 +76,17 @@ export function AppShell() {
   }, [])
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${menu ? 'open' : ''}`}>
+      <a
+        className="skip-link"
+        href="#workspace"
+        onClick={(event) => {
+          event.preventDefault()
+          document.getElementById('workspace')?.focus()
+        }}
+      >
+        Skip to content
+      </a>
+      <aside ref={sidebarRef} id="navigation" className={`sidebar ${menu ? 'open' : ''}`}>
         <div className="brand">
           <span className="brand-mark">
             <Activity size={20} />
@@ -51,6 +99,7 @@ export function AppShell() {
             <X size={19} />
           </button>
         </div>
+        <div className="nav-label">WORKSPACE</div>
         <nav aria-label="Primary navigation">
           {nav.map(({ to, label, icon: Icon }) => (
             <NavLink key={label} to={to} end={to === '/'} onClick={() => setMenu(false)}>
@@ -64,7 +113,11 @@ export function AppShell() {
             <FlaskConical size={16} /> Research mode
           </div>
           <p>Full-resolution data remains safely on each logger's SD card.</p>
-          <span className="mini-link">Storage architecture ↗</span>
+          {!readOnlyMode && (
+            <Link className="mini-link" to="/settings" onClick={() => setMenu(false)}>
+              About this workspace ↗
+            </Link>
+          )}
         </div>
         <div className="profile">
           <div className="avatar">{demoMode ? 'AR' : readOnlyMode ? 'PV' : email.slice(0, 2).toUpperCase()}</div>
@@ -84,13 +137,19 @@ export function AppShell() {
         </div>
       </aside>
       {menu && <button className="backdrop" onClick={() => setMenu(false)} aria-label="Close navigation" />}
-      <main className="main">
+      <main className="main" id="workspace" tabIndex={-1}>
         <header className="topbar">
-          <button className="icon-btn menu-btn" onClick={() => setMenu(true)} aria-label="Open menu">
+          <button
+            className="icon-btn menu-btn"
+            onClick={() => setMenu(true)}
+            aria-label="Open menu"
+            aria-expanded={menu}
+            aria-controls="navigation"
+          >
             <Menu size={20} />
           </button>
           <div className="topbar-context">
-            <span className="live-pulse" /> Network monitoring active
+            <span className="live-pulse" /> {currentPage}
           </div>
           <div className="topbar-actions">
             {demoMode && <span className="demo-badge">Demo data</span>}

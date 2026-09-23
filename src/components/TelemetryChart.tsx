@@ -26,6 +26,7 @@ export function TelemetryChart({
       }
     : null
   const chartData = data.map((point) => ({ ...point, time: new Date(point.timestamp).getTime() }))
+  const spansMultipleDays = chartData.length > 1 && chartData[chartData.length - 1].time - chartData[0].time > 86400000
   const gradientId = `gradient-${dataKey}`
   return (
     <article className="chart-card">
@@ -44,7 +45,7 @@ export function TelemetryChart({
         <>
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 6, bottom: data.length > 100 ? 8 : 0, left: -18 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 12, bottom: data.length > 100 ? 8 : 0, left: -10 }}>
                 <defs>
                   <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={color} stopOpacity={0.22} />
@@ -56,10 +57,10 @@ export function TelemetryChart({
                   dataKey="time"
                   type="number"
                   domain={['dataMin', 'dataMax']}
-                  tickFormatter={(v: number) => format(v, 'HH:mm')}
+                  tickFormatter={(v: number) => format(v, spansMultipleDays ? 'dd MMM' : 'HH:mm')}
                   axisLine={false}
                   tickLine={false}
-                  minTickGap={35}
+                  minTickGap={44}
                 />
                 <YAxis axisLine={false} tickLine={false} />
                 <Tooltip
@@ -84,7 +85,14 @@ export function TelemetryChart({
                   activeDot={{ r: 4, strokeWidth: 2 }}
                 />
                 {data.length > 100 && (
-                  <Brush dataKey="time" height={16} travellerWidth={7} stroke={color} tickFormatter={() => ''} />
+                  <Brush
+                    dataKey="time"
+                    height={22}
+                    travellerWidth={9}
+                    stroke={color}
+                    fill="var(--surface-2)"
+                    tickFormatter={() => ''}
+                  />
                 )}
               </AreaChart>
             </ResponsiveContainer>

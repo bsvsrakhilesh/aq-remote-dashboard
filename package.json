@@ -12,7 +12,8 @@
     "format:write": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke:visual": "node scripts/visual-smoke.mjs"
+    "smoke:visual": "node scripts/visual-smoke.mjs",
+    "smoke:auth": "node scripts/visual-auth.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

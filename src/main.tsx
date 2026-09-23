@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './styles.css'
+import './workspace.css'
 import { appName } from './services/supabase'
 
 document.title = appName

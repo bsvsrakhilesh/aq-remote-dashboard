@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Download, FileText, LoaderCircle, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { demoMode, supabase } from '../services/supabase'
 import type { DeviceFile, DownloadStatus } from '../types'
 import { downloadLabel, formatFileSize } from '../utils'
@@ -19,16 +19,35 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
   const [error, setError] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
   const [now, setNow] = useState(Date.now())
+  const modalRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const previous = document.body.style.overflow
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
     document.body.style.overflow = 'hidden'
+    modalRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
+      if (event.key === 'Tab') {
+        const elements = modalRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled)',
+        )
+        if (!elements?.length) return
+        const first = elements[0]
+        const last = elements[elements.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
     }
     window.addEventListener('keydown', escape)
     return () => {
       document.body.style.overflow = previous
       window.removeEventListener('keydown', escape)
+      trigger?.focus({ preventScroll: true })
     }
   }, [onClose])
   useEffect(() => {
@@ -121,7 +140,7 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
   const Icon = status === 'ready' ? CheckCircle2 : terminal ? AlertTriangle : FileText
   return (
     <div className="modal-layer" role="dialog" aria-modal="true" aria-labelledby="download-title">
-      <div className="modal">
+      <div className="modal" ref={modalRef}>
         <button className="modal-close icon-btn" onClick={onClose} aria-label="Close">
           <X size={18} />
         </button>

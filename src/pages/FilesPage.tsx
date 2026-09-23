@@ -80,7 +80,8 @@ export function FilesPage() {
             </div>
           </div>
         </div>
-        <div className="data-table" role="table" aria-label="Logger data files">
+        <p className="table-scroll-hint">Scroll sideways to see all file details and actions.</p>
+        <div className="data-table" role="table" aria-label="Logger data files" tabIndex={0}>
           <div className="table-header" role="row">
             <span role="columnheader">File</span>
             <span role="columnheader">Logger</span>
