@@ -197,6 +197,16 @@ export function FleetPage() {
                     <span>%</span>
                   </div>
                 </div>
+                {device.co2Enabled && (
+                  <div className="fleet-co2" aria-label="CO₂ reading">
+                    <span>
+                      <span className="metric-signal green" /> CO₂ <small>SCD30</small>
+                    </span>
+                    <span>
+                      <strong>{device.latest.co2?.toFixed(0) ?? '—'}</strong> <small>ppm</small>
+                    </span>
+                  </div>
+                )}
                 <div className="device-meta">
                   <span>
                     <Wifi size={15} />

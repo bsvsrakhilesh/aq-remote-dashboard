@@ -23,7 +23,7 @@ import { readOnlyMode } from '../services/supabase'
 import type { DeviceFile, RangeKey, Reading } from '../types'
 import { formatDateTime, formatFileSize, formatRelative, getDeviceState, rssiQuality } from '../utils'
 
-type ReadingKey = 'pm25' | 'pm10' | 'temperature' | 'rh'
+type ReadingKey = 'pm25' | 'pm10' | 'temperature' | 'rh' | 'co2'
 const delta = (data: Reading[], key: ReadingKey) => {
   const values = data.map((item) => item[key]).filter((value): value is number => value !== null)
   return values.length > 1 ? values.at(-1)! - values.at(-2)! : null
@@ -74,13 +74,14 @@ export function DevicePage() {
         </div>
       </div>
     )
-  const healthChecks = [
+  const healthChecks: ReadonlyArray<readonly [string, boolean | null, string]> = [
     ['ESP32', state === 'online', 'Cloud link'],
     ['SPS30', device.health.sps30, 'Particle sensor'],
     ['SHT3x', device.health.sht3x, 'Temperature + RH'],
     ['RTC', device.health.rtc, 'Clock synchronised'],
     ['SD card', device.health.sd, 'Recording normally'],
-  ] as const
+    ...(device.co2Enabled ? [['SCD30', device.health.scd30, 'CO₂ sensor'] as const] : []),
+  ]
   const healthy = healthChecks.filter(([, ok]) => ok).length
   const refreshFiles = async () => {
     setNotice('')
@@ -128,7 +129,7 @@ export function DevicePage() {
           <small>Firmware {device.firmware}</small>
         </div>
       </section>
-      <section className="metrics">
+      <section className={`metrics ${device.co2Enabled ? 'has-co2' : ''}`}>
         <MetricCard
           label="PM2.5"
           value={latest?.pm25 ?? null}
@@ -161,6 +162,17 @@ export function DevicePage() {
           tone="teal"
           timestamp={latest?.timestamp}
         />
+        {device.co2Enabled && (
+          <MetricCard
+            label="CO₂"
+            value={latest?.co2 ?? null}
+            unit="ppm"
+            change={latest?.co2 == null ? null : delta(telemetryState.data, 'co2')}
+            tone="green"
+            timestamp={latest?.co2 == null ? undefined : latest.timestamp}
+            decimals={0}
+          />
+        )}
       </section>
       <section className="charts-section">
         <div className="section-head">
@@ -188,8 +200,8 @@ export function DevicePage() {
         )}
         {telemetryState.loading ? (
           <div className="chart-grid">
-            {Array.from({ length: 4 }, (_, index) => (
-              <div className="chart-card chart-skeleton" key={index}>
+            {Array.from({ length: device.co2Enabled ? 5 : 4 }, (_, index) => (
+              <div className={`chart-card chart-skeleton ${index === 4 ? 'co2-chart' : ''}`} key={index}>
                 <span />
                 <span />
                 <span />
@@ -226,6 +238,16 @@ export function DevicePage() {
               dataKey="rh"
               color="#188c81"
             />
+            {device.co2Enabled && (
+              <TelemetryChart
+                title="Carbon dioxide · CO₂"
+                unit="ppm"
+                data={telemetryState.data}
+                dataKey="co2"
+                color="#53945e"
+                decimals={0}
+              />
+            )}
           </div>
         )}
       </section>
@@ -243,14 +265,14 @@ export function DevicePage() {
           <div className="health-list">
             {healthChecks.map(([name, ok, description]) => (
               <div key={name}>
-                <span className={`check-dot ${ok ? 'ok' : 'bad'}`}>
-                  {ok ? <CheckCircle2 size={15} /> : <span>!</span>}
+                <span className={`check-dot ${ok === null ? 'unknown' : ok ? 'ok' : 'bad'}`}>
+                  {ok ? <CheckCircle2 size={15} /> : <span>{ok === null ? '—' : '!'}</span>}
                 </span>
                 <span>
                   <strong>{name}</strong>
                   <small>{description}</small>
                 </span>
-                <b>{ok ? 'Operational' : 'Check'}</b>
+                <b>{ok === null ? 'Not reported' : ok ? 'Operational' : 'Check'}</b>
               </div>
             ))}
           </div>

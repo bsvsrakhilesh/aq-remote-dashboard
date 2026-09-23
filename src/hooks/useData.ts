@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { devices as mockDevices, filesFor, telemetryFor } from '../mocks/data'
 import { demoMode, readOnlyMode, supabase } from '../services/supabase'
+import { collectTelemetryPages } from '../services/telemetry'
 import type { Device, DeviceFile, RangeKey, Reading } from '../types'
 import { rangeHours } from '../utils'
 import { usePreferences } from './usePreferences'
@@ -33,6 +34,8 @@ interface DeviceRow {
   rtc_ok: boolean | null
   current_filename: string | null
   current_file_size: number | null
+  co2_enabled: boolean
+  scd30_ok: boolean | null
 }
 interface TelemetryRow {
   device_id: string
@@ -41,6 +44,7 @@ interface TelemetryRow {
   pm10: number | null
   temperature_c: number | null
   rh: number | null
+  co2_ppm: number | null
 }
 
 const fallbackReading = (timestamp: string): Reading => ({
@@ -49,6 +53,7 @@ const fallbackReading = (timestamp: string): Reading => ({
   pm10: null,
   temperature: null,
   rh: null,
+  co2: null,
 })
 const mapDevice = (row: DeviceRow, latest?: TelemetryRow): Device => ({
   id: row.id,
@@ -58,11 +63,13 @@ const mapDevice = (row: DeviceRow, latest?: TelemetryRow): Device => ({
   firmware: row.firmware_version ?? 'Unknown',
   lastSeen: row.last_seen ?? new Date(0).toISOString(),
   rssi: row.wifi_rssi ?? -100,
+  co2Enabled: row.co2_enabled,
   health: {
     sd: row.sd_ok ?? false,
     sps30: row.sps30_ok ?? false,
     sht3x: row.sht3x_ok ?? false,
     rtc: row.rtc_ok ?? false,
+    scd30: row.scd30_ok,
   },
   latest: latest
     ? {
@@ -71,6 +78,7 @@ const mapDevice = (row: DeviceRow, latest?: TelemetryRow): Device => ({
         pm10: latest.pm10,
         temperature: latest.temperature_c,
         rh: latest.rh,
+        co2: latest.co2_ppm ?? null,
       }
     : fallbackReading(row.last_seen ?? new Date(0).toISOString()),
   currentFilename: row.current_filename ?? 'No active file',
@@ -115,7 +123,7 @@ export function useDevices(): AsyncState<Device[]> {
       const { data: rows, error: deviceError } = await client
         .from('devices')
         .select(
-          'id,device_code,display_name,description,firmware_version,last_seen,wifi_rssi,sd_ok,sps30_ok,sht3x_ok,rtc_ok,current_filename,current_file_size',
+          'id,device_code,display_name,description,firmware_version,last_seen,wifi_rssi,sd_ok,sps30_ok,sht3x_ok,rtc_ok,current_filename,current_file_size,co2_enabled,scd30_ok',
         )
         .order('device_code')
       if (deviceError) {
@@ -130,7 +138,7 @@ export function useDevices(): AsyncState<Device[]> {
         typed.map(async (device) => {
           const { data: reading } = await client
             .from('telemetry_5min')
-            .select('device_id,timestamp,pm25,pm10,temperature_c,rh')
+            .select('device_id,timestamp,pm25,pm10,temperature_c,rh,co2_ppm')
             .eq('device_id', device.id)
             .order('timestamp', { ascending: false })
             .limit(1)
@@ -194,25 +202,38 @@ export function useTelemetry(device: Device | null, range: RangeKey): AsyncState
     setLoading(true)
     setError(null)
     const since = new Date(Date.now() - rangeHours[range] * 3600000).toISOString()
-    void supabase
-      .from('telemetry_5min')
-      .select('device_id,timestamp,pm25,pm10,temperature_c,rh')
-      .eq('device_id', device.id)
-      .gte('timestamp', since)
-      .order('timestamp')
-      .then(({ data: rows, error: telemetryError }) => {
+    const until = new Date().toISOString()
+    const client = supabase
+    void collectTelemetryPages<TelemetryRow>(async (from, to) => {
+      if (!alive) return []
+      const { data: rows, error: telemetryError } = await client
+        .from('telemetry_5min')
+        .select('device_id,timestamp,pm25,pm10,temperature_c,rh,co2_ppm')
+        .eq('device_id', device.id)
+        .gte('timestamp', since)
+        .lte('timestamp', until)
+        .order('timestamp')
+        .range(from, to)
+      if (telemetryError) throw telemetryError
+      return (rows ?? []) as TelemetryRow[]
+    })
+      .then((rows) => {
         if (!alive) return
-        if (telemetryError) setError('Measurements could not be loaded. Check your connection and retry.')
-        else
-          setData(
-            ((rows ?? []) as TelemetryRow[]).map((reading) => ({
-              timestamp: reading.timestamp,
-              pm25: reading.pm25,
-              pm10: reading.pm10,
-              temperature: reading.temperature_c,
-              rh: reading.rh,
-            })),
-          )
+        setData(
+          rows.map((reading) => ({
+            timestamp: reading.timestamp,
+            pm25: reading.pm25,
+            pm10: reading.pm10,
+            temperature: reading.temperature_c,
+            rh: reading.rh,
+            co2: reading.co2_ppm ?? null,
+          })),
+        )
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!alive) return
+        setError('Measurements could not be loaded. Check your connection and retry.')
         setLoading(false)
       })
     return () => {

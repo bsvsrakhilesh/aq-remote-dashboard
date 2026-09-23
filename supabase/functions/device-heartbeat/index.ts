@@ -8,6 +8,7 @@ interface HeartbeatBody {
   sps30_ok?: boolean
   sht3x_ok?: boolean
   rtc_ok?: boolean
+  scd30_ok?: boolean | null
   current_file?: string
   current_file_size?: number
   firmware_version?: string
@@ -30,7 +31,8 @@ Deno.serve(async (request) => {
     Number.isSafeInteger(body.current_file_size) &&
     body.current_file_size! >= 0
   const validFirmware = typeof body?.firmware_version === 'string' && body.firmware_version.length <= 64
-  if (!validTimestamp || !validRssi || !validHealth || !validFile || !validFirmware)
+  const validScd30 = body?.scd30_ok == null || typeof body.scd30_ok === 'boolean'
+  if (!validTimestamp || !validRssi || !validHealth || !validFile || !validFirmware || !validScd30)
     return json(request, { ok: false, error: 'invalid_heartbeat' }, 400)
   const { error } = await auth.db
     .from('devices')
@@ -41,6 +43,7 @@ Deno.serve(async (request) => {
       sps30_ok: body.sps30_ok,
       sht3x_ok: body.sht3x_ok,
       rtc_ok: body.rtc_ok,
+      scd30_ok: body.scd30_ok ?? null,
       current_filename: body.current_file,
       current_file_size: body.current_file_size,
       firmware_version: body.firmware_version,

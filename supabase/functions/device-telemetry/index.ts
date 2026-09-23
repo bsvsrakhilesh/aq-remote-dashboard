@@ -1,15 +1,15 @@
 import { authenticateDevice } from '../_shared/device-auth.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
+import { parseTelemetry } from '../_shared/telemetry.ts'
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
+  if (req.method !== 'POST') return json(req, { ok: false, error: 'method_not_allowed' }, 405)
   const auth = await authenticateDevice(req)
   if (!auth) return json(req, { ok: false, error: 'unauthorized' }, 401)
   try {
-    const b = await req.json()
-    if (!b.timestamp || Number.isNaN(Date.parse(b.timestamp)))
-      return json(req, { ok: false, error: 'invalid_timestamp' }, 400)
-    for (const k of ['pm25', 'pm10', 'temperature', 'rh'])
-      if (b[k] !== null && typeof b[k] !== 'number') return json(req, { ok: false, error: `invalid_${k}` }, 400)
+    const parsed = parseTelemetry(await req.json())
+    if (parsed.error !== undefined) return json(req, { ok: false, error: parsed.error }, 400)
+    const b = parsed.data
     const { error } = await auth.db.from('telemetry_5min').upsert(
       {
         device_id: auth.device.id,
@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
         pm10: b.pm10,
         temperature_c: b.temperature,
         rh: b.rh,
+        co2_ppm: b.co2,
       },
       { onConflict: 'device_id,timestamp' },
     )

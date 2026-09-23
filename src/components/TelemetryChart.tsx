@@ -2,19 +2,21 @@ import { Area, AreaChart, Brush, CartesianGrid, ResponsiveContainer, Tooltip, XA
 import type { Reading } from '../types'
 import { format } from 'date-fns'
 
-type ReadingKey = 'pm25' | 'pm10' | 'temperature' | 'rh'
+type ReadingKey = 'pm25' | 'pm10' | 'temperature' | 'rh' | 'co2'
 export function TelemetryChart({
   title,
   unit,
   data,
   dataKey,
   color,
+  decimals = 1,
 }: {
   title: string
   unit: string
   data: Reading[]
   dataKey: ReadingKey
   color: string
+  decimals?: number
 }) {
   const values = data.map((d) => d[dataKey]).filter((v): v is number => v !== null)
   const stats = values.length
@@ -29,7 +31,7 @@ export function TelemetryChart({
   const spansMultipleDays = chartData.length > 1 && chartData[chartData.length - 1].time - chartData[0].time > 86400000
   const gradientId = `gradient-${dataKey}`
   return (
-    <article className="chart-card">
+    <article className={`chart-card ${dataKey === 'co2' ? 'co2-chart' : ''}`} aria-label={`${title} history`}>
       <div className="chart-head">
         <div>
           <span className="eyebrow">Time series</span>
@@ -37,7 +39,7 @@ export function TelemetryChart({
         </div>
         {stats && (
           <span className="chart-latest">
-            {stats.latest.toFixed(1)} <small>{unit}</small>
+            {stats.latest.toFixed(decimals)} <small>{unit}</small>
           </span>
         )}
       </div>
@@ -69,13 +71,14 @@ export function TelemetryChart({
                       <div className="chart-tooltip">
                         <span>{format(Number(label), 'dd MMM · HH:mm')}</span>
                         <strong>
-                          {Number(payload[0].value).toFixed(1)} {unit}
+                          {Number(payload[0].value).toFixed(decimals)} {unit}
                         </strong>
                       </div>
                     ) : null
                   }
                 />
                 <Area
+                  isAnimationActive={false}
                   type="monotone"
                   dataKey={dataKey}
                   connectNulls={false}
@@ -99,13 +102,13 @@ export function TelemetryChart({
           </div>
           <div className="chart-stats">
             <span>
-              Min <strong>{stats.min.toFixed(1)}</strong>
+              Min <strong>{stats.min.toFixed(decimals)}</strong>
             </span>
             <span>
-              Avg <strong>{stats.avg.toFixed(1)}</strong>
+              Avg <strong>{stats.avg.toFixed(decimals)}</strong>
             </span>
             <span>
-              Max <strong>{stats.max.toFixed(1)}</strong>
+              Max <strong>{stats.max.toFixed(decimals)}</strong>
             </span>
           </div>
         </>

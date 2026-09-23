@@ -724,3 +724,48 @@ select {
     scroll-behavior: auto !important;
   }
 }
+
+/* Optional SCD30 measurements only appear on CO2-enabled devices. */
+.metrics.has-co2 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.co2-chart {
+  grid-column: 1 / -1;
+}
+.metric-signal.green {
+  background: #53945e;
+}
+.fleet-co2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 2px 0;
+  font-size: 0.8125rem;
+}
+.fleet-co2 > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.fleet-co2 small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.fleet-co2 strong {
+  font:
+    500 1.25rem 'DM Mono',
+    monospace;
+}
+.check-dot.unknown {
+  color: var(--muted);
+  background: var(--surface-2);
+}
+@media (max-width: 1200px) {
+  .metrics.has-co2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .metrics.has-co2 > .metric-card:last-child {
+    grid-column: 1 / -1;
+  }
+}

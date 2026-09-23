@@ -8,6 +8,7 @@ export interface Reading {
   pm10: number | null
   temperature: number | null
   rh: number | null
+  co2: number | null
 }
 export interface Device {
   id: string
@@ -17,7 +18,8 @@ export interface Device {
   firmware: string
   lastSeen: string
   rssi: number
-  health: { sd: boolean; sps30: boolean; sht3x: boolean; rtc: boolean }
+  co2Enabled: boolean
+  health: { sd: boolean; sps30: boolean; sht3x: boolean; rtc: boolean; scd30: boolean | null }
   latest: Reading
   currentFilename: string
   currentFileSize: number

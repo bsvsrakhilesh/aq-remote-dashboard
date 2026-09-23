@@ -42,6 +42,38 @@ File-catalog body: `{"command_id":"<list-files-command-uuid>","files":[{"name":"
 
 ## Firmware pseudocode
 
+### SCD30 CO₂ on aq_indoor01
+
+This logger has CO₂ enabled in the registry. Use `X-Device-ID: aq_indoor01` with its existing device secret. Send the SCD30's measured CO₂ concentration as the optional numeric `co2` field in the same five-minute telemetry request:
+
+```json
+{
+  "timestamp": "2026-09-23T16:20:00+05:30",
+  "pm25": 18.4,
+  "pm10": 31.2,
+  "temperature": 26.4,
+  "rh": 58.0,
+  "co2": 812.5
+}
+```
+
+These are example values, not readings to hardcode. In firmware, add `telemetry["co2"] = co2Ppm;` to the JSON object using the actual SCD30 measurement. The backend stores it as `telemetry_5min.co2_ppm`. Send a JSON number in ppm, without a unit suffix or surrounding quotes. Omit the field or send `null` when the sensor has no valid measurement, including startup, read failures, or stale samples. Zero, negative values, non-finite values, and concentrations above 1,000,000 ppm are rejected with HTTP 400 `invalid_co2`. This broad storage limit is not a claim about sensor accuracy or operating range.
+
+Add the optional field `"scd30_ok": true` to the heartbeat when the SCD30 is working, `false` on a detected sensor fault, or `null` when its status is unknown. Older firmware can omit it; the dashboard then shows **Not reported**. Existing temperature/RH fields keep their current source.
+
+The separately supplied `PM_CO2_XIAO_Expansion_IITD_CLOUD.ino` already acquires SCD30 measurements. Its cloud integration adds these lines to `sendCloudTelemetry()` and `sendCloudHeartbeat()`, respectively:
+
+```cpp
+body += ",\"co2\":" + jsonFloatOrNull(co2Concentration, scdOk && co2Concentration > 0 && co2Concentration <= 1000000);
+body += ",\"scd30_ok\":" + String(scd30DataUsable(millis()) ? "true" : "false");
+```
+
+This uses the sketch's existing freshness check, sends `null` for unusable CO₂ samples, and leaves sensor acquisition, local display, and SD logging unchanged. The configured sketch is kept local, outside the public repository, because firmware configuration may contain device and Wi-Fi credentials. Compile and upload that updated sketch to the logger; deploying the website alone does not update its firmware.
+
+The dashboard shows a CO₂ value, a ppm history chart with all four time ranges, and SCD30 health only when `devices.co2_enabled` is true. The migration enables this for `aq_indoor01`; other loggers remain unchanged. Existing telemetry rows have `NULL` CO₂ and are not backfilled. For another CO₂-equipped logger, enable the flag through trusted SQL. Firmware should continue SD logging independently of cloud requests.
+
+### Background cloud task
+
 ```cpp
 void cloudTask() {
   if (heartbeatDue()) sendHeartbeat();

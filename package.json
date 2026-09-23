@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke:visual": "node scripts/visual-smoke.mjs",
-    "smoke:auth": "node scripts/visual-auth.mjs"
+    "smoke:auth": "node scripts/visual-auth.mjs",
+    "smoke:co2": "node scripts/visual-co2.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
