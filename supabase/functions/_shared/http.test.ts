@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { corsHeaders } from '../../supabase/functions/_shared/http'
+import { corsHeaders } from './http'
 
 afterEach(() => vi.unstubAllGlobals())
 
