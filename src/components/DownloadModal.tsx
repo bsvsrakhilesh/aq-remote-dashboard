@@ -1,8 +1,10 @@
 import { AlertTriangle, CheckCircle2, Download, FileText, LoaderCircle, X } from 'lucide-react'
+import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { demoMode, supabase } from '../services/supabase'
 import type { DeviceFile, DownloadStatus } from '../types'
 import { downloadLabel, formatFileSize } from '../utils'
+import { describeDownloadRequestFailure } from '../utils/downloadRequest'
 
 interface Props {
   file: DeviceFile
@@ -86,12 +88,41 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
     const client = supabase
     let active = true
     let poll = 0
+    let polling = true
     void (async () => {
-      const { data, error: requestError } = await client.functions.invoke('request-file-download', {
-        body: { device_id: deviceId, filename: file.filename },
-      })
+      const invoke = () =>
+        client.functions.invoke('request-file-download', {
+          body: { device_id: deviceId, filename: file.filename },
+        })
+      let { data, error: requestError } = await invoke()
+      if (requestError instanceof FunctionsHttpError && requestError.context.status === 401) {
+        const { error: refreshError } = await client.auth.refreshSession()
+        if (!refreshError) ({ data, error: requestError } = await invoke())
+      }
+      if (!active) return
       if (requestError || !data?.request_id) {
-        if (active) setError('Could not start the transfer. Confirm the logger is online and retry.')
+        let code: string | undefined
+        if (requestError instanceof FunctionsHttpError) {
+          const payload = await requestError.context
+            .clone()
+            .json()
+            .catch(() => null)
+          if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string')
+            code = payload.error
+        }
+        if (!active) return
+        setStatus('failed')
+        setError(
+          describeDownloadRequestFailure(
+            requestError instanceof FunctionsHttpError ? requestError.context.status : undefined,
+            code,
+            requestError instanceof FunctionsFetchError
+              ? 'network'
+              : requestError instanceof FunctionsRelayError
+                ? 'relay'
+                : undefined,
+          ),
+        )
         return
       }
       setRequestId(data.request_id)
@@ -104,6 +135,7 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
         if (!active) return
         if (pollError) {
           setError('Transfer status is temporarily unavailable. Close this window and retry from the file list.')
+          polling = false
           window.clearInterval(poll)
           return
         }
@@ -111,7 +143,10 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
         setStatus(nextStatus)
         setProgress(row.progress_percent)
         if (row.error_message) setError(row.error_message)
-        if (['failed', 'expired'].includes(nextStatus)) window.clearInterval(poll)
+        if (['failed', 'expired'].includes(nextStatus)) {
+          polling = false
+          window.clearInterval(poll)
+        }
         if (nextStatus === 'ready' && row.storage_path && row.expires_at) {
           setExpiresAt(row.expires_at)
           const seconds = Math.max(1, Math.floor((new Date(row.expires_at).getTime() - Date.now()) / 1000))
@@ -120,11 +155,12 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
             .createSignedUrl(row.storage_path, seconds)
           if (signed) setUrl(signed.signedUrl)
           if (signError) setError('The secure download link could not be created. Retry the request.')
+          polling = false
           window.clearInterval(poll)
         }
       }
       await check()
-      poll = window.setInterval(() => void check(), 2000)
+      if (active && polling) poll = window.setInterval(() => void check(), 2000)
     })()
     return () => {
       active = false
@@ -155,7 +191,9 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
           {status === 'ready'
             ? 'Download before the private link expires.'
             : terminal
-              ? 'The logger could not complete this request.'
+              ? requestId
+                ? 'The logger could not complete this request.'
+                : 'The transfer request could not be started.'
               : 'Keep this window open while the logger streams directly from its SD card.'}
         </p>
         <div className="file-summary">
