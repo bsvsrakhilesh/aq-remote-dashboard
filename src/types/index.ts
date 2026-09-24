@@ -19,6 +19,7 @@ export interface Device {
   lastSeen: string
   rssi: number
   co2Enabled: boolean
+  installedSensors: string[]
   health: { sd: boolean; sps30: boolean; sht3x: boolean; rtc: boolean; scd30: boolean | null }
   latest: Reading
   currentFilename: string

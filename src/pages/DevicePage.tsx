@@ -76,11 +76,13 @@ export function DevicePage() {
     )
   const healthChecks: ReadonlyArray<readonly [string, boolean | null, string]> = [
     ['ESP32', state === 'online', 'Cloud link'],
-    ['SPS30', device.health.sps30, 'Particle sensor'],
-    ['SHT3x', device.health.sht3x, 'Temperature + RH'],
+    ...(device.installedSensors.includes('sps30') ? [['SPS30', device.health.sps30, 'Particle sensor'] as const] : []),
+    ...(device.installedSensors.includes('sht3x') ? [['SHT3x', device.health.sht3x, 'Temperature + RH'] as const] : []),
     ['RTC', device.health.rtc, 'Clock synchronised'],
     ['SD card', device.health.sd, 'Recording normally'],
-    ...(device.co2Enabled ? [['SCD30', device.health.scd30, 'CO₂ sensor'] as const] : []),
+    ...(device.installedSensors.includes('scd30')
+      ? [['SCD30', device.health.scd30, 'CO₂ · Temperature · RH'] as const]
+      : []),
   ]
   const healthy = healthChecks.filter(([, ok]) => ok).length
   const refreshFiles = async () => {

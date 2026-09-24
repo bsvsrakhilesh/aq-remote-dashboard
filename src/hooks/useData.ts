@@ -35,6 +35,7 @@ interface DeviceRow {
   current_filename: string | null
   current_file_size: number | null
   co2_enabled: boolean
+  installed_sensors: string[]
   scd30_ok: boolean | null
 }
 interface TelemetryRow {
@@ -64,6 +65,7 @@ const mapDevice = (row: DeviceRow, latest?: TelemetryRow): Device => ({
   lastSeen: row.last_seen ?? new Date(0).toISOString(),
   rssi: row.wifi_rssi ?? -100,
   co2Enabled: row.co2_enabled,
+  installedSensors: row.installed_sensors,
   health: {
     sd: row.sd_ok ?? false,
     sps30: row.sps30_ok ?? false,
@@ -123,7 +125,7 @@ export function useDevices(): AsyncState<Device[]> {
       const { data: rows, error: deviceError } = await client
         .from('devices')
         .select(
-          'id,device_code,display_name,description,firmware_version,last_seen,wifi_rssi,sd_ok,sps30_ok,sht3x_ok,rtc_ok,current_filename,current_file_size,co2_enabled,scd30_ok',
+          'id,device_code,display_name,description,firmware_version,last_seen,wifi_rssi,sd_ok,sps30_ok,sht3x_ok,rtc_ok,current_filename,current_file_size,co2_enabled,scd30_ok,installed_sensors',
         )
         .order('device_code')
       if (deviceError) {

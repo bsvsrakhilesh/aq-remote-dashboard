@@ -68,7 +68,13 @@ body += ",\"co2\":" + jsonFloatOrNull(co2Concentration, scdOk && co2Concentratio
 body += ",\"scd30_ok\":" + String(scd30DataUsable(millis()) ? "true" : "false");
 ```
 
-This uses the sketch's existing freshness check, sends `null` for unusable CO₂ samples, and leaves sensor acquisition, local display, and SD logging unchanged. The configured sketch is kept local, outside the public repository, because firmware configuration may contain device and Wi-Fi credentials. Compile and upload that updated sketch to the logger; deploying the website alone does not update its firmware.
+This uses the sketch's existing freshness check and sends `null` for unusable CO₂ samples. The configured sketch is kept local, outside the public repository, because firmware configuration may contain device and Wi-Fi credentials. Compile and upload that updated sketch to the logger; deploying the website alone does not update its firmware.
+
+The local sketch is configured for project `qnrfwfuyxuzqdcbgrwdd` and device `aq_indoor01`. Before flashing, replace the `CLOUD_DEVICE_SECRET` placeholder with this device's existing secret. For IITD_WIFI, also replace the `IITD_EAP_IDENTITY` and `IITD_EAP_USERNAME` placeholders with your own account values; enter the Wi-Fi password through the logger's existing local setup flow. Its Edge Functions use device headers with `verify_jwt=false`, so `CLOUD_SUPABASE_ANON_KEY` stays empty. Never put a service-role key in the sketch.
+
+The logger's installed sensors are recorded in `devices.installed_sensors`. This unit is `['sps30','scd30']`; temperature and RH come from SCD30. Other units can keep `['sps30','sht3x']` or their actual inventory. Configure each device when registering it. An absent SHT3x is hidden from health checks rather than shown as broken. The network name is `aq-indoor01.local` (hyphen), while the database device code and existing CSV prefix remain `aq_indoor01` (underscore).
+
+The updated sketch sends cloud requests from a FreeRTOS worker, allowing sensor acquisition and SD writes to continue during TLS operations. Its CSV transfer uses a fixed byte snapshot of the weekly file, reports progress, and distinguishes completed uploads from failures. Requested CSV copies are limited to 100 MiB by the Supabase bucket. Local SD logging still holds the complete research data.
 
 The dashboard shows a CO₂ value, a ppm history chart with all four time ranges, and SCD30 health only when `devices.co2_enabled` is true. The migration enables this for `aq_indoor01`; other loggers remain unchanged. Existing telemetry rows have `NULL` CO₂ and are not backfilled. For another CO₂-equipped logger, enable the flag through trusted SQL. Firmware should continue SD logging independently of cloud requests.
 
