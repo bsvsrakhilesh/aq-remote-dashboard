@@ -270,9 +270,9 @@ export function useDeviceFiles(device: Device | null): DeviceFilesState {
     setError(null)
     void supabase
       .from('device_files')
-      .select('id,filename,size_bytes,modified_at')
+      .select('id,filename,size_bytes,created_at')
       .eq('device_id', device.id)
-      .order('modified_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .then(({ data: rows, error: fileError }) => {
         if (!alive) return
         if (fileError) setError('The logger file catalog is temporarily unavailable.')
@@ -282,7 +282,7 @@ export function useDeviceFiles(device: Device | null): DeviceFilesState {
               id: String(row.id),
               filename: String(row.filename),
               size: Number(row.size_bytes),
-              modifiedAt: row.modified_at ? String(row.modified_at) : new Date(0).toISOString(),
+              createdAt: row.created_at ? String(row.created_at) : null,
             })),
           )
         setLoading(false)
@@ -349,8 +349,8 @@ export function useAllFiles(): AsyncState<FleetFile[]> {
     setError(null)
     void supabase
       .from('device_files')
-      .select('id,filename,size_bytes,modified_at,devices!inner(id,device_code,display_name,last_seen)')
-      .order('modified_at', { ascending: false })
+      .select('id,filename,size_bytes,created_at,devices!inner(id,device_code,display_name,last_seen)')
+      .order('created_at', { ascending: false })
       .then(({ data: rows, error: fileError }) => {
         if (!alive) return
         if (fileError) setError('The fleet file catalog is temporarily unavailable.')
@@ -368,7 +368,7 @@ export function useAllFiles(): AsyncState<FleetFile[]> {
                   id: String(row.id),
                   filename: String(row.filename),
                   size: Number(row.size_bytes),
-                  modifiedAt: row.modified_at ? String(row.modified_at) : new Date(0).toISOString(),
+                  createdAt: row.created_at ? String(row.created_at) : null,
                 },
                 device: {
                   id: joined.id,

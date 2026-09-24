@@ -38,7 +38,7 @@ Telemetry body:
 { "timestamp": "2026-09-22T16:20:00+05:30", "pm25": 18.4, "pm10": 31.2, "temperature": 26.4, "rh": 58.0 }
 ```
 
-File-catalog body: `{"command_id":"<list-files-command-uuid>","files":[{"name":"AQ01_2026-09-22.csv","size_bytes":18634259,"modified_at":"2026-09-22T16:20:00+05:30"}]}`. Listing sends metadata only. Supplying the command ID atomically marks the catalog command complete.
+File-catalog body: `{"command_id":"<list-files-command-uuid>","files":[{"name":"AQ01_2026-09-22.csv","size_bytes":18634259,"created_at":"2026-09-22T16:20:00+05:30"}]}`. Listing sends metadata only. Supplying the command ID atomically marks the catalog command complete. For the SPS30/SCD30 logger, `created_at` comes from the first RTC-stamped CSV data row—the earliest reliable record of when the file began. Omit it if that row is missing or invalid; the dashboard will show “Date unavailable.” Older loggers may still send `modified_at`, but the Created column does not substitute it for creation time.
 
 ## Firmware pseudocode
 

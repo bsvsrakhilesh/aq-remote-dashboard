@@ -70,7 +70,7 @@ export const filesFor = (code: string): DeviceFile[] =>
     id: `${code}-${day}`,
     filename: `${code}_2026-09-${String(22 - day).padStart(2, '0')}.csv`,
     size: 18634259 + day * 975421,
-    modifiedAt: new Date(now - day * 86400000).toISOString(),
+    createdAt: new Date(now - day * 86400000).toISOString(),
   }))
 
 export function telemetryFor(device: Device, range: RangeKey): Reading[] {

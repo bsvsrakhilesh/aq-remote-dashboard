@@ -5,6 +5,7 @@ interface CatalogFile {
   name: string
   size_bytes: number
   modified_at?: string | null
+  created_at?: string | null
 }
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(request) })
@@ -20,7 +21,8 @@ Deno.serve(async (request) => {
       file.name.length <= 255 &&
       Number.isSafeInteger(file.size_bytes) &&
       file.size_bytes >= 0 &&
-      (!file.modified_at || !Number.isNaN(Date.parse(file.modified_at))),
+      (!file.modified_at || !Number.isNaN(Date.parse(file.modified_at))) &&
+      (!file.created_at || !Number.isNaN(Date.parse(file.created_at))),
   )
   if (!valid) return json(request, { ok: false, error: 'invalid_file_metadata' }, 400)
   const scannedAt = new Date().toISOString()
@@ -30,6 +32,7 @@ Deno.serve(async (request) => {
     filename: file.name,
     size_bytes: file.size_bytes,
     modified_at: file.modified_at ?? null,
+    created_at: file.created_at ?? null,
     last_scanned_at: scannedAt,
   }))
   if (rows.length) {

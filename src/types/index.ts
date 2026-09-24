@@ -29,7 +29,7 @@ export interface DeviceFile {
   id: string
   filename: string
   size: number
-  modifiedAt: string
+  createdAt: string | null
 }
 export interface DownloadRequest {
   id: string

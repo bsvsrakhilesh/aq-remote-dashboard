@@ -19,6 +19,8 @@ export const formatDateTime = (value: string) => {
   const date = new Date(value)
   return `${format(date, 'dd MMM yyyy, HH:mm:ss')} ${timeZoneLabel(date)}`
 }
+export const formatFileCreatedAt = (value: string | null) =>
+  value && !Number.isNaN(Date.parse(value)) ? formatDateTime(value) : 'Date unavailable'
 export const formatFileSize = (bytes: number) => {
   if (bytes === 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB']

@@ -5,7 +5,7 @@ import { useAllFiles } from '../hooks/useData'
 import { usePreferences } from '../hooks/usePreferences'
 import { readOnlyMode } from '../services/supabase'
 import type { DeviceFile } from '../types'
-import { formatDateTime, formatFileSize, getDeviceState } from '../utils'
+import { formatFileCreatedAt, formatFileSize, getDeviceState } from '../utils'
 
 export function FilesPage() {
   const [query, setQuery] = useState('')
@@ -85,7 +85,9 @@ export function FilesPage() {
           <div className="table-header" role="row">
             <span role="columnheader">File</span>
             <span role="columnheader">Logger</span>
-            <span role="columnheader">Modified</span>
+            <span role="columnheader" title="Time of the first logged reading in each file">
+              Created
+            </span>
             <span role="columnheader">Size</span>
             <span role="columnheader">Action</span>
           </div>
@@ -115,7 +117,7 @@ export function FilesPage() {
                     <span role="cell">
                       {device.code} · {device.name}
                     </span>
-                    <span role="cell">{formatDateTime(file.modifiedAt)}</span>
+                    <span role="cell">{formatFileCreatedAt(file.createdAt)}</span>
                     <span role="cell">{formatFileSize(file.size)}</span>
                     <button
                       className="button secondary small"

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatDateTime,
+  formatFileCreatedAt,
   formatFileSize,
   getDeviceState,
   isDownloadTransitionValid,
@@ -33,6 +34,11 @@ describe('formatting', () => {
     expect(rssiQuality(-89)).toBe('Very weak')
   })
   it('formats timestamps', () => expect(formatDateTime('2026-09-22T12:00:00Z')).toMatch(/22 Sep 2026/))
+  it('does not invent a file creation date when the logger did not report one', () => {
+    expect(formatFileCreatedAt(null)).toBe('Date unavailable')
+    expect(formatFileCreatedAt('invalid')).toBe('Date unavailable')
+    expect(formatFileCreatedAt('2026-09-22T12:00:00Z')).toMatch(/22 Sep 2026/)
+  })
   it('reports the browser time-zone label', () => expect(timeZoneLabel(new Date('2026-09-22T12:00:00Z'))).toBeTruthy())
 })
 describe('ranges and transfers', () => {

@@ -21,7 +21,7 @@ import { useDeviceFiles, useDevices, useTelemetry } from '../hooks/useData'
 import { usePreferences } from '../hooks/usePreferences'
 import { readOnlyMode } from '../services/supabase'
 import type { DeviceFile, RangeKey, Reading } from '../types'
-import { formatDateTime, formatFileSize, formatRelative, getDeviceState, rssiQuality } from '../utils'
+import { formatFileCreatedAt, formatFileSize, formatRelative, getDeviceState, rssiQuality } from '../utils'
 
 type ReadingKey = 'pm25' | 'pm10' | 'temperature' | 'rh' | 'co2'
 const delta = (data: Reading[], key: ReadingKey) => {
@@ -366,7 +366,7 @@ export function DevicePage() {
                       </span>
                       <span className="file-name">
                         <strong>{file.filename}</strong>
-                        <small>{formatDateTime(file.modifiedAt)}</small>
+                        <small>{formatFileCreatedAt(file.createdAt)}</small>
                       </span>
                       <span className="file-size">{formatFileSize(file.size)}</span>
                       <button
