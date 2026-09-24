@@ -42,6 +42,7 @@ interface DeviceRow {
 interface TelemetryRow {
   device_id: string
   timestamp: string
+  pm1: number | null
   pm25: number | null
   pm10: number | null
   temperature_c: number | null
@@ -51,6 +52,7 @@ interface TelemetryRow {
 
 const fallbackReading = (timestamp: string): Reading => ({
   timestamp,
+  pm1: null,
   pm25: null,
   pm10: null,
   temperature: null,
@@ -77,6 +79,7 @@ const mapDevice = (row: DeviceRow, latest?: TelemetryRow): Device => ({
   latest: latest
     ? {
         timestamp: latest.timestamp,
+        pm1: latest.pm1,
         pm25: latest.pm25,
         pm10: latest.pm10,
         temperature: latest.temperature_c,
@@ -141,7 +144,7 @@ export function useDevices(): AsyncState<Device[]> {
         typed.map(async (device) => {
           const { data: reading } = await client
             .from('telemetry_5min')
-            .select('device_id,timestamp,pm25,pm10,temperature_c,rh,co2_ppm')
+            .select('device_id,timestamp,pm1,pm25,pm10,temperature_c,rh,co2_ppm')
             .eq('device_id', device.id)
             .order('timestamp', { ascending: false })
             .limit(1)
@@ -211,7 +214,7 @@ export function useTelemetry(device: Device | null, range: RangeKey): AsyncState
       if (!alive) return []
       const { data: rows, error: telemetryError } = await client
         .from('telemetry_5min')
-        .select('device_id,timestamp,pm25,pm10,temperature_c,rh,co2_ppm')
+        .select('device_id,timestamp,pm1,pm25,pm10,temperature_c,rh,co2_ppm')
         .eq('device_id', device.id)
         .gte('timestamp', since)
         .lte('timestamp', until)
@@ -225,6 +228,7 @@ export function useTelemetry(device: Device | null, range: RangeKey): AsyncState
         setData(
           rows.map((reading) => ({
             timestamp: reading.timestamp,
+            pm1: reading.pm1,
             pm25: reading.pm25,
             pm10: reading.pm10,
             temperature: reading.temperature_c,

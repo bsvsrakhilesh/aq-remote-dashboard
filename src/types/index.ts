@@ -4,6 +4,7 @@ export type DownloadStatus = 'queued' | 'device_acknowledged' | 'uploading' | 'r
 
 export interface Reading {
   timestamp: string
+  pm1: number | null
   pm25: number | null
   pm10: number | null
   temperature: number | null

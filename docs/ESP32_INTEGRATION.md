@@ -35,7 +35,7 @@ Heartbeat body:
 Telemetry body:
 
 ```json
-{ "timestamp": "2026-09-22T16:20:00+05:30", "pm25": 18.4, "pm10": 31.2, "temperature": 26.4, "rh": 58.0 }
+{ "timestamp": "2026-09-22T16:20:00+05:30", "pm1": 12.6, "pm25": 18.4, "pm10": 31.2, "temperature": 26.4, "rh": 58.0 }
 ```
 
 File-catalog body: `{"command_id":"<list-files-command-uuid>","files":[{"name":"AQ01_2026-09-22.csv","size_bytes":18634259,"created_at":"2026-09-22T16:20:00+05:30"}]}`. Listing sends metadata only. Supplying the command ID atomically marks the catalog command complete. For the SPS30/SCD30 logger, `created_at` comes from the first RTC-stamped CSV data row—the earliest reliable record of when the file began. Omit it if that row is missing or invalid; the dashboard will show “Date unavailable.” Older loggers may still send `modified_at`, but the Created column does not substitute it for creation time.
@@ -49,6 +49,7 @@ This logger has CO₂ enabled in the registry. Use `X-Device-ID: aq_indoor01` wi
 ```json
 {
   "timestamp": "2026-09-23T16:20:00+05:30",
+  "pm1": 12.6,
   "pm25": 18.4,
   "pm10": 31.2,
   "temperature": 26.4,
@@ -57,7 +58,9 @@ This logger has CO₂ enabled in the registry. Use `X-Device-ID: aq_indoor01` wi
 }
 ```
 
-These are example values, not readings to hardcode. In firmware, add `telemetry["co2"] = co2Ppm;` to the JSON object using the actual SCD30 measurement. The backend stores it as `telemetry_5min.co2_ppm`. Send a JSON number in ppm, without a unit suffix or surrounding quotes. Omit the field or send `null` when the sensor has no valid measurement, including startup, read failures, or stale samples. Zero, negative values, non-finite values, and concentrations above 1,000,000 ppm are rejected with HTTP 400 `invalid_co2`. This broad storage limit is not a claim about sensor accuracy or operating range.
+These are example values, not readings to hardcode. Send `pm1` from the SPS30's measured PM1 mass concentration (`mc_1p0`) in µg/m³; omit it or send `null` if unavailable. Older logger payloads without `pm1` remain valid. The backend stores it as `telemetry_5min.pm1`.
+
+In firmware, add `telemetry["co2"] = co2Ppm;` to the JSON object using the actual SCD30 measurement. The backend stores it as `telemetry_5min.co2_ppm`. Send a JSON number in ppm, without a unit suffix or surrounding quotes. Omit the field or send `null` when the sensor has no valid measurement, including startup, read failures, or stale samples. Zero, negative values, non-finite values, and concentrations above 1,000,000 ppm are rejected with HTTP 400 `invalid_co2`. This broad storage limit is not a claim about sensor accuracy or operating range.
 
 Add the optional field `"scd30_ok": true` to the heartbeat when the SCD30 is working, `false` on a detected sensor fault, or `null` when its status is unknown. Older firmware can omit it; the dashboard then shows **Not reported**. Existing temperature/RH fields keep their current source.
 

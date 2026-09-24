@@ -23,7 +23,7 @@ import { readOnlyMode } from '../services/supabase'
 import type { DeviceFile, RangeKey, Reading } from '../types'
 import { formatFileCreatedAt, formatFileSize, formatRelative, getDeviceState, rssiQuality } from '../utils'
 
-type ReadingKey = 'pm25' | 'pm10' | 'temperature' | 'rh' | 'co2'
+type ReadingKey = 'pm1' | 'pm25' | 'pm10' | 'temperature' | 'rh' | 'co2'
 const delta = (data: Reading[], key: ReadingKey) => {
   const values = data.map((item) => item[key]).filter((value): value is number => value !== null)
   return values.length > 1 ? values.at(-1)! - values.at(-2)! : null
@@ -202,8 +202,11 @@ export function DevicePage() {
         )}
         {telemetryState.loading ? (
           <div className="chart-grid">
-            {Array.from({ length: device.co2Enabled ? 5 : 4 }, (_, index) => (
-              <div className={`chart-card chart-skeleton ${index === 4 ? 'co2-chart' : ''}`} key={index}>
+            {Array.from({ length: device.co2Enabled ? 6 : 5 }, (_, index) => (
+              <div
+                className={`chart-card chart-skeleton ${index === 0 || (device.co2Enabled && index === 5) ? 'featured-chart' : ''}`}
+                key={index}
+              >
                 <span />
                 <span />
                 <span />
@@ -212,6 +215,13 @@ export function DevicePage() {
           </div>
         ) : (
           <div className="chart-grid">
+            <TelemetryChart
+              title="Particles · PM1"
+              unit="µg/m³"
+              data={telemetryState.data}
+              dataKey="pm1"
+              color="#0a86a5"
+            />
             <TelemetryChart
               title="Fine particles · PM2.5"
               unit="µg/m³"

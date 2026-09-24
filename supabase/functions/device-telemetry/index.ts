@@ -14,6 +14,7 @@ Deno.serve(async (req) => {
       {
         device_id: auth.device.id,
         timestamp: b.timestamp,
+        pm1: b.pm1,
         pm25: b.pm25,
         pm10: b.pm10,
         temperature_c: b.temperature,

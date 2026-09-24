@@ -20,6 +20,12 @@ try {
       await card.waitFor()
       assert.match(await card.innerText(), /ppm/)
       assert.equal(await page.locator('.metrics .metric-card').count(), 5)
+      const chartNames = await page
+        .locator('.chart-grid .chart-card')
+        .evaluateAll((charts) => charts.map((chart) => chart.getAttribute('aria-label')))
+      assert.equal(chartNames[0], 'Particles · PM1 history')
+      assert.equal(chartNames[1], 'Fine particles · PM2.5 history')
+      await page.getByRole('article', { name: 'Particles · PM1 history' }).locator('.recharts-area').waitFor()
       for (const range of ['6h', '24h', '7d', '30d']) {
         await page.getByRole('button', { name: range, exact: true }).click()
         const chart = page.getByRole('article', { name: 'Carbon dioxide · CO₂ history', exact: true })

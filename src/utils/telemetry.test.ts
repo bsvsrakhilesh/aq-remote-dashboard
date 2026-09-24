@@ -7,11 +7,19 @@ const sample = { timestamp: '2026-09-23T12:00:00Z', pm25: 18.4, pm10: 31.2, temp
 
 describe('SCD30 telemetry contract', () => {
   it('accepts measured CO2 without changing the existing measurements', () => {
-    expect(parseTelemetry({ ...sample, co2: 812.5 })).toEqual({ data: { ...sample, co2: 812.5 } })
+    expect(parseTelemetry({ ...sample, co2: 812.5 })).toEqual({ data: { ...sample, pm1: null, co2: 812.5 } })
   })
   it('keeps old firmware compatible and missing CO2 null', () => {
-    expect(parseTelemetry(sample)).toEqual({ data: { ...sample, co2: null } })
-    expect(parseTelemetry({ ...sample, co2: null })).toEqual({ data: { ...sample, co2: null } })
+    expect(parseTelemetry(sample)).toEqual({ data: { ...sample, pm1: null, co2: null } })
+    expect(parseTelemetry({ ...sample, co2: null })).toEqual({ data: { ...sample, pm1: null, co2: null } })
+  })
+  it('accepts measured PM1 and preserves older loggers without it', () => {
+    expect(parseTelemetry({ ...sample, pm1: 12.6 }).data?.pm1).toBe(12.6)
+    expect(parseTelemetry({ ...sample, pm1: null }).data?.pm1).toBeNull()
+    expect(parseTelemetry(sample).data?.pm1).toBeNull()
+  })
+  it.each([-1, 10001, NaN, Infinity, -Infinity, '12.6', true, [], {}])('rejects invalid PM1 %j', (pm1) => {
+    expect(parseTelemetry({ ...sample, pm1 })).toEqual({ error: 'invalid_pm1' })
   })
   it.each([0, -1, 1000001, NaN, Infinity, -Infinity, '812', true, [], {}])('rejects invalid CO2 %j', (co2) => {
     expect(parseTelemetry({ ...sample, co2 })).toEqual({ error: 'invalid_co2' })
@@ -39,6 +47,14 @@ describe('isolated CO2 preview data', () => {
     expect(readings.some((reading) => reading.co2 === null)).toBe(true)
     expect(readings.some((reading) => typeof reading.co2 === 'number' && reading.co2 > 0)).toBe(true)
     expect(telemetryFor(disabled, '24h').every((reading) => reading.co2 === null)).toBe(true)
+  })
+})
+
+describe('PM1 preview data', () => {
+  it('includes measured PM1 with gaps for SPS30 loggers', () => {
+    const readings = telemetryFor(devices[0], '24h')
+    expect(readings.some((reading) => reading.pm1 === null)).toBe(true)
+    expect(readings.some((reading) => typeof reading.pm1 === 'number' && reading.pm1 >= 0)).toBe(true)
   })
 })
 

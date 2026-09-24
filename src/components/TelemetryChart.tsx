@@ -2,7 +2,7 @@ import { Area, AreaChart, Brush, CartesianGrid, ResponsiveContainer, Tooltip, XA
 import type { Reading } from '../types'
 import { format } from 'date-fns'
 
-type ReadingKey = 'pm25' | 'pm10' | 'temperature' | 'rh' | 'co2'
+type ReadingKey = 'pm1' | 'pm25' | 'pm10' | 'temperature' | 'rh' | 'co2'
 export function TelemetryChart({
   title,
   unit,
@@ -31,7 +31,10 @@ export function TelemetryChart({
   const spansMultipleDays = chartData.length > 1 && chartData[chartData.length - 1].time - chartData[0].time > 86400000
   const gradientId = `gradient-${dataKey}`
   return (
-    <article className={`chart-card ${dataKey === 'co2' ? 'co2-chart' : ''}`} aria-label={`${title} history`}>
+    <article
+      className={`chart-card ${dataKey === 'pm1' || dataKey === 'co2' ? 'featured-chart' : ''}`}
+      aria-label={`${title} history`}
+    >
       <div className="chart-head">
         <div>
           <span className="eyebrow">Time series</span>
