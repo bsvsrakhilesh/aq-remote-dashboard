@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js'
 import { devices as mockDevices, filesFor, telemetryFor } from '../mocks/data'
 import { demoMode, readOnlyMode, supabase } from '../services/supabase'
 import { collectTelemetryPages } from '../services/telemetry'
@@ -299,10 +300,27 @@ export function useDeviceFiles(device: Device | null): DeviceFilesState {
       return 'Demo catalog refreshed'
     }
     if (!supabase) throw new Error('Supabase is not configured')
-    const { error: invokeError } = await supabase.functions.invoke('request-file-list', {
-      body: { device_id: device.id },
-    })
-    if (invokeError) throw new Error('Could not contact the command service. Please retry.')
+    const client = supabase
+    const invoke = () => client.functions.invoke('request-file-list', { body: { device_id: device.id } })
+    let { error: invokeError } = await invoke()
+    if (invokeError instanceof FunctionsHttpError && invokeError.context.status === 401) {
+      // A browser tab can outlive its access token; refresh once before asking
+      // the researcher to sign in again.
+      const { error: refreshError } = await client.auth.refreshSession()
+      if (!refreshError) ({ error: invokeError } = await invoke())
+    }
+    if (invokeError instanceof FunctionsHttpError) {
+      const status = invokeError.context.status
+      if (status === 401)
+        throw new Error('Your session has expired. Sign out and sign in again, then refresh the list.')
+      if (status === 404) throw new Error('This logger was not found by the command service. Reload the dashboard.')
+      throw new Error(`File-list request failed (HTTP ${status}). Please retry.`)
+    }
+    if (invokeError instanceof FunctionsFetchError)
+      throw new Error('Network connection to the command service failed. Check your internet connection and retry.')
+    if (invokeError instanceof FunctionsRelayError)
+      throw new Error('The command service is temporarily unavailable. Please retry shortly.')
+    if (invokeError) throw new Error('File-list request failed. Please retry.')
     ;[3000, 8000, 15000, 25000].forEach((delay) => window.setTimeout(reload, delay))
     return 'File-list command queued'
   }, [device, reload])
