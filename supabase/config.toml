@@ -417,6 +417,9 @@ enabled = true
 [functions.device-heartbeat]
 verify_jwt = false
 
+[functions.process-csv-history]
+verify_jwt = false
+
 [functions.device-telemetry]
 verify_jwt = false
 

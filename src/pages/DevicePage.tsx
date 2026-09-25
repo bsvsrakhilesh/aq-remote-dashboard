@@ -131,6 +131,12 @@ export function DevicePage() {
           <small>Firmware {device.firmware}</small>
         </div>
       </section>
+      <nav className="history-tabs" aria-label="Device views">
+        <Link aria-current="page" to={`/device/${device.code}`}>
+          Live readings
+        </Link>
+        <Link to={`/device/${device.code}/history`}>One-minute history</Link>
+      </nav>
       <section className={`metrics ${device.co2Enabled ? 'has-co2' : ''}`}>
         <MetricCard
           label="PM1"

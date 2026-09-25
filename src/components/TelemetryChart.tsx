@@ -10,6 +10,7 @@ export function TelemetryChart({
   dataKey,
   color,
   decimals = 1,
+  timeZone,
 }: {
   title: string
   unit: string
@@ -17,6 +18,7 @@ export function TelemetryChart({
   dataKey: ReadingKey
   color: string
   decimals?: number
+  timeZone?: string
 }) {
   const values = data.map((d) => d[dataKey]).filter((v): v is number => v !== null)
   const stats = values.length
@@ -30,6 +32,15 @@ export function TelemetryChart({
   const chartData = data.map((point) => ({ ...point, time: new Date(point.timestamp).getTime() }))
   const spansMultipleDays = chartData.length > 1 && chartData[chartData.length - 1].time - chartData[0].time > 86400000
   const gradientId = `gradient-${dataKey}`
+  const timeLabel = (value: number, full = false) =>
+    timeZone
+      ? new Intl.DateTimeFormat('en-GB', {
+          timeZone,
+          hour: '2-digit',
+          minute: '2-digit',
+          ...(full ? ({ day: '2-digit', month: 'short' } as const) : {}),
+        }).format(value)
+      : format(value, full ? 'dd MMM · HH:mm' : spansMultipleDays ? 'dd MMM' : 'HH:mm')
   return (
     <article
       className={`chart-card ${dataKey === 'pm1' || dataKey === 'co2' ? 'featured-chart' : ''}`}
@@ -62,7 +73,7 @@ export function TelemetryChart({
                   dataKey="time"
                   type="number"
                   domain={['dataMin', 'dataMax']}
-                  tickFormatter={(v: number) => format(v, spansMultipleDays ? 'dd MMM' : 'HH:mm')}
+                  tickFormatter={(v: number) => timeLabel(v)}
                   axisLine={false}
                   tickLine={false}
                   minTickGap={44}
@@ -72,7 +83,7 @@ export function TelemetryChart({
                   content={({ active, payload, label }) =>
                     active && payload?.length ? (
                       <div className="chart-tooltip">
-                        <span>{format(Number(label), 'dd MMM · HH:mm')}</span>
+                        <span>{timeLabel(Number(label), true)}</span>
                         <strong>
                           {Number(payload[0].value).toFixed(decimals)} {unit}
                         </strong>
