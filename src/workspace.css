@@ -187,7 +187,10 @@ select {
   line-height: 1.6;
 }
 .device-readings {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  overflow: hidden;
 }
 .device-readings strong {
   letter-spacing: -0.04em;
@@ -195,6 +198,15 @@ select {
 .device-readings > div {
   min-width: 0;
   padding: 14px 12px;
+  grid-column: span 2;
+  border: 0;
+  background: var(--surface-2);
+}
+.device-readings > div:nth-child(n + 4) {
+  grid-column: span 3;
+}
+.device-readings.has-co2 > div {
+  grid-column: span 2;
 }
 .device-readings span {
   margin-left: 0;
@@ -725,9 +737,11 @@ select {
   }
 }
 
-/* Optional SCD30 measurements only appear on CO2-enabled devices. */
-.metrics.has-co2 {
+.metrics {
   grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.metrics.has-co2 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 .featured-chart {
   grid-column: 1 / -1;
@@ -735,37 +749,22 @@ select {
 .metric-signal.green {
   background: #53945e;
 }
-.fleet-co2 {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 2px 0;
-  font-size: 0.8125rem;
-}
-.fleet-co2 > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.fleet-co2 small {
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-.fleet-co2 strong {
-  font:
-    500 1.25rem 'DM Mono',
-    monospace;
+.metric-signal.cyan {
+  background: #0a86a5;
 }
 .check-dot.unknown {
   color: var(--muted);
   background: var(--surface-2);
 }
-@media (max-width: 1200px) {
+@media (max-width: 1599px) {
+  .metrics,
+  .metrics.has-co2 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .metrics,
   .metrics.has-co2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .metrics.has-co2 > .metric-card:last-child {
-    grid-column: 1 / -1;
   }
 }

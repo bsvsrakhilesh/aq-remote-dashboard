@@ -133,6 +133,14 @@ export function DevicePage() {
       </section>
       <section className={`metrics ${device.co2Enabled ? 'has-co2' : ''}`}>
         <MetricCard
+          label="PM1"
+          value={latest?.pm1 ?? null}
+          unit="µg/m³"
+          change={latest?.pm1 == null ? null : delta(telemetryState.data, 'pm1')}
+          tone="cyan"
+          timestamp={latest?.pm1 == null ? undefined : latest.timestamp}
+        />
+        <MetricCard
           label="PM2.5"
           value={latest?.pm25 ?? null}
           unit="µg/m³"

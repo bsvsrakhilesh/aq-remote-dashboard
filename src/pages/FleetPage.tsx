@@ -175,7 +175,12 @@ export function FleetPage() {
                   <StatusBadge state={state} />
                 </div>
                 <p className="location">{device.location}</p>
-                <div className="device-readings">
+                <div className={`device-readings ${device.co2Enabled ? 'has-co2' : ''}`}>
+                  <div>
+                    <small>PM1</small>
+                    <strong>{device.latest.pm1?.toFixed(1) ?? '—'}</strong>
+                    <span>µg/m³</span>
+                  </div>
                   <div>
                     <small>PM2.5</small>
                     <strong>{device.latest.pm25?.toFixed(1) ?? '—'}</strong>
@@ -196,17 +201,14 @@ export function FleetPage() {
                     <strong>{device.latest.rh?.toFixed(0) ?? '—'}</strong>
                     <span>%</span>
                   </div>
+                  {device.co2Enabled && (
+                    <div>
+                      <small>CO₂</small>
+                      <strong>{device.latest.co2?.toFixed(0) ?? '—'}</strong>
+                      <span>ppm</span>
+                    </div>
+                  )}
                 </div>
-                {device.co2Enabled && (
-                  <div className="fleet-co2" aria-label="CO₂ reading">
-                    <span>
-                      <span className="metric-signal green" /> CO₂ <small>SCD30</small>
-                    </span>
-                    <span>
-                      <strong>{device.latest.co2?.toFixed(0) ?? '—'}</strong> <small>ppm</small>
-                    </span>
-                  </div>
-                )}
                 <div className="device-meta">
                   <span>
                     <Wifi size={15} />
