@@ -108,12 +108,6 @@ const char* CLOUD_FUNCTIONS_BASE =
 const char* CLOUD_DEVICE_ID = "aq_outdoor01";
 const char* CLOUD_DEVICE_SECRET = OUTDOOR_DEVICE_SECRET;
 
-// Optional. Leave blank if your device Edge Functions are configured with
-// verify_jwt=false and authenticate only with X-Device-ID / X-Device-Key.
-// If your Edge Functions require the Supabase anon JWT, put the public anon key
-// here. Never put a Supabase service-role key in firmware.
-const char* CLOUD_SUPABASE_ANON_KEY = "";
-
 bool mdnsStarted = false;
 
 RTC_DS3231 rtc;
@@ -681,10 +675,6 @@ void addCloudHeaders(HTTPClient& http) {
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-ID", CLOUD_DEVICE_ID);
   http.addHeader("X-Device-Key", CLOUD_DEVICE_SECRET);
-  if (strlen(CLOUD_SUPABASE_ANON_KEY) > 0) {
-    http.addHeader("apikey", CLOUD_SUPABASE_ANON_KEY);
-    http.addHeader("Authorization", String("Bearer ") + CLOUD_SUPABASE_ANON_KEY);
-  }
 }
 
 void noteCloudResult(const String& action, int httpCode) {
@@ -735,10 +725,6 @@ int cloudGet(const char* functionName, String* response = nullptr) {
   if (!http.begin(client, cloudUrl(functionName))) return -1;
   http.addHeader("X-Device-ID", CLOUD_DEVICE_ID);
   http.addHeader("X-Device-Key", CLOUD_DEVICE_SECRET);
-  if (strlen(CLOUD_SUPABASE_ANON_KEY) > 0) {
-    http.addHeader("apikey", CLOUD_SUPABASE_ANON_KEY);
-    http.addHeader("Authorization", String("Bearer ") + CLOUD_SUPABASE_ANON_KEY);
-  }
   int code = http.GET();
   if (response && code > 0) *response = http.getString();
   http.end();

@@ -71,9 +71,9 @@ body += ",\"co2\":" + jsonFloatOrNull(co2Concentration, scdOk && co2Concentratio
 body += ",\"scd30_ok\":" + String(scd30DataUsable(millis()) ? "true" : "false");
 ```
 
-This uses the sketch's existing freshness check and sends `null` for unusable CO₂ samples. The configured sketch is kept local, outside the public repository, because firmware configuration may contain device and Wi-Fi credentials. Compile and upload that updated sketch to the logger; deploying the website alone does not update its firmware.
+This uses the sketch's existing freshness check and sends `null` for unusable CO₂ samples. The shareable sketch is in `firmware/aq_indoor01/`; its device credentials are kept in a separate, git-ignored `private_config.h`. Compile and upload the sketch to the logger; deploying the website alone does not update its firmware.
 
-The local sketch is configured for project `qnrfwfuyxuzqdcbgrwdd` and device `aq_indoor01`. Before flashing, replace the `CLOUD_DEVICE_SECRET` placeholder with this device's existing secret. For IITD_WIFI, also replace the `IITD_EAP_IDENTITY` and `IITD_EAP_USERNAME` placeholders with your own account values; enter the Wi-Fi password through the logger's existing local setup flow. Its Edge Functions use device headers with `verify_jwt=false`, so `CLOUD_SUPABASE_ANON_KEY` stays empty. Never put a service-role key in the sketch.
+The sketch is configured for project `qnrfwfuyxuzqdcbgrwdd` and device `aq_indoor01`. The existing device key and IITD username are in its git-ignored `private_config.h`; enter the Wi-Fi password through Serial setup. Its Edge Functions authenticate with the device ID and key, so no Supabase anon key or service-role key belongs in the firmware. See [aq_indoor01 setup](AQ_INDOOR01_SETUP.md).
 
 The logger's installed sensors are recorded in `devices.installed_sensors`. This unit is `['sps30','scd30']`; temperature and RH come from SCD30. Other units can keep `['sps30','sht3x']` or their actual inventory. Configure each device when registering it. An absent SHT3x is hidden from health checks rather than shown as broken. The network name is `aq-indoor01.local` (hyphen), while the database device code and existing CSV prefix remain `aq_indoor01` (underscore).
 

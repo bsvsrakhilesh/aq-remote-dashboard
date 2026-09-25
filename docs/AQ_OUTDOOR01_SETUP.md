@@ -28,7 +28,7 @@ The sketch is [`firmware/aq_outdoor01/aq_outdoor01.ino`](../firmware/aq_outdoor0
 
    For a newly registered project, open `firmware\aq_outdoor01\private_config.h` and replace `YOUR_DEVICE_SECRET` with the `device_secret` returned in step 2. If using `IITD_WIFI`, also set `OUTDOOR_IITD_USERNAME`. Never put your IITD password in this file; the firmware asks for it through Serial and stores it on the ESP32 after a successful connection. `private_config.h` is git-ignored. Preserve this file securely when moving to another computer; the database cannot reveal the key again.
 
-4. Open `firmware\aq_outdoor01\aq_outdoor01.ino` in Arduino IDE. Select **XIAO ESP32S3**, choose the serial port, and upload. The Supabase functions URL and device ID are already set. The publishable/anon key is intentionally blank because these device Edge Functions use `verify_jwt=false` and authenticate with the unique device key.
+4. Open `firmware\aq_outdoor01\aq_outdoor01.ino` in Arduino IDE. Select **XIAO ESP32S3**, choose the serial port, and upload. The Supabase functions URL and device ID are already set. Device requests authenticate with `X-Device-ID` and the unique `X-Device-Key`; no Supabase anon key is needed in firmware.
 
 5. Check the Serial Monitor at **115200 baud**. Supply Wi-Fi credentials if prompted. Local SD logging continues without Wi-Fi and uses a recovery CSV when time is unverified. It creates weekly CSV files when time is verified. After the first successful SD row, the buzzer gives two beeps. Cloud heartbeat runs every minute; telemetry every five minutes; commands are polled every five seconds while connected.
 
