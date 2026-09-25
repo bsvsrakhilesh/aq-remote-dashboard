@@ -5,14 +5,14 @@
 1. Create a Supabase project and install the CLI.
 2. Run `supabase link --project-ref <ref>` then `supabase db push`.
 3. Create the first Auth user in Authentication → Users.
-4. For a new installation, add a device with a bcrypt hash: `insert into devices(device_code,display_name,secret_hash) values ('aq_indoor01','Indoor logger',extensions.crypt('<32-byte-secret>',extensions.gen_salt('bf')));`. Skip this insert if the device is already registered.
+4. Register each new physical logger with the admin-only SQL Editor helper in [Fleet provisioning](FLEET_PROVISIONING.md). Existing registered devices keep their current keys.
 5. Set secrets: `supabase secrets set ALLOWED_ORIGINS=http://localhost:5173,https://<user>.github.io CLEANUP_SECRET=<random-secret>`.
 6. Deploy: `supabase functions deploy device-heartbeat device-telemetry device-next-command device-command-ack device-file-catalog request-file-list request-file-download cancel-file-download device-upload-session device-download-progress device-download-complete device-download-failed cleanup-expired-downloads`.
 7. Schedule cleanup with Supabase Cron or a trusted scheduler that POSTs to the cleanup function with `X-Cleanup-Secret`.
 
 ### Device ID in firmware
 
-Set `CLOUD_DEVICE_ID = "aq_indoor01"` and keep the original device secret. Migration `202609230001_lowercase_device_code.sql` allows lowercase IDs and renames the existing `AQ01` record to `aq_indoor01`, preserving its UUID, secret hash, and linked data. Device authentication is case-sensitive. The corresponding dashboard route is `#/device/aq_indoor01`. The isolated demo still uses example IDs such as `AQ01`.
+The ready-to-upload indoor sketch and private-key setup are documented in [aq_indoor01 setup](AQ_INDOOR01_SETUP.md); the SPS30 + SHT3x variant is in [aq_outdoor01 setup](AQ_OUTDOOR01_SETUP.md). Migration `202609230001_lowercase_device_code.sql` renames the existing `AQ01` record to `aq_indoor01`, preserving its UUID, secret hash, and linked data. Device authentication is case-sensitive. The corresponding dashboard route is `#/device/aq_indoor01`. The isolated demo still uses example IDs such as `AQ01`.
 
 ### Optional public read-only mode
 

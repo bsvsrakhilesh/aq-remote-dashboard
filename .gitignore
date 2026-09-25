@@ -9,3 +9,5 @@ dist
 *-smoke*.png
 .DS_Store
 PM_CO2_XIAO_Expansion_IITD_CLOUD.ino
+firmware/aq_outdoor01/private_config.h
+firmware/aq_indoor01/private_config.h

@@ -13,6 +13,11 @@ describe('SCD30 telemetry contract', () => {
     expect(parseTelemetry(sample)).toEqual({ data: { ...sample, pm1: null, co2: null } })
     expect(parseTelemetry({ ...sample, co2: null })).toEqual({ data: { ...sample, pm1: null, co2: null } })
   })
+  it('accepts SPS30 + SHT3x outdoor telemetry without any CO2 field', () => {
+    expect(parseTelemetry({ ...sample, pm1: 12.6 })).toEqual({
+      data: { ...sample, pm1: 12.6, co2: null },
+    })
+  })
   it('accepts measured PM1 and preserves older loggers without it', () => {
     expect(parseTelemetry({ ...sample, pm1: 12.6 }).data?.pm1).toBe(12.6)
     expect(parseTelemetry({ ...sample, pm1: null }).data?.pm1).toBeNull()
