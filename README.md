@@ -6,7 +6,7 @@ A research-grade remote monitoring dashboard for XIAO ESP32-S3 environmental log
 
 The production GitHub Pages deployment is available at [bsvsrakhilesh.github.io/aq-remote-dashboard](https://bsvsrakhilesh.github.io/aq-remote-dashboard/). Until Supabase variables are configured, it runs in an explicitly labelled, isolated demo mode.
 
-The interface includes fleet search/filter/sort, heartbeat-derived status, four zoomable scientific charts, system diagnostics, SD-card catalogs, authenticated temporary downloads, persistent workspace preferences, dark mode, loading/error/empty states, and responsive mobile layouts.
+The interface includes fleet search/filter/sort, device charts, system diagnostics, SD-card catalogs, authenticated temporary downloads, twice-daily one-minute CSV history, research analysis, cloud alert rules, field notes, historical CSV import, retention controls, saved views, dark mode, and responsive mobile layouts.
 
 ## Run locally
 
@@ -27,7 +27,7 @@ npm run build
 npm run preview
 ```
 
-For browser-level interaction and overflow checks, start `npm run dev` in one terminal and run `npm run smoke:visual` in another. Set `BROWSER_PATH` when Microsoft Edge is installed elsewhere.
+For browser-level interaction and overflow checks, set `VITE_DEMO_MODE=true` in `.env.local`, start `npm run dev` in one terminal, then run `npm run smoke:visual` and `npm run smoke:research` in another. Set `BROWSER_PATH` when Microsoft Edge is installed elsewhere.
 
 The app uses `HashRouter`, so deep links work on GitHub Pages. The Vite build automatically uses `/aq-remote-dashboard/` during GitHub Actions.
 
@@ -37,6 +37,8 @@ The app uses `HashRouter`, so deep links work on GitHub Pages. The Vite build au
 - [Supabase and GitHub deployment](docs/DEPLOYMENT.md)
 - [ESP32 API and firmware integration](docs/ESP32_INTEGRATION.md)
 - [Security model](docs/SECURITY.md)
+- [One-minute CSV history](docs/MINUTE_HISTORY.md)
+- [Research workspace features and verification](docs/WORKSPACE_UPGRADE.md)
 
 Apply migrations with `supabase db push`; they create constrained tables, indexes, RLS policies, a private temporary bucket, and device-secret verification. Deploy the Edge Functions using the exact command in the deployment guide.
 
@@ -60,4 +62,4 @@ Public read-only mode also requires the server-side `dashboard_settings.public_r
 - Missing chart points: nulls and missed uploads intentionally render as gaps.
 - CSV not available: confirm the logger polled and acknowledged the command, storage bucket is private, and the request has not expired.
 
-Full-resolution acquisition, RTC, OLED, SD logging, Wi-Fi connection management, HTTP retries, command polling, chunked upload, and watchdog-safe task scheduling still require ESP32 firmware integration. Cloud failure must never affect local logging.
+The dashboard upgrade does not change logger firmware. Full-resolution SD logging and the local ESP32 dashboard continue independently of the cloud.

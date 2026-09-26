@@ -5,6 +5,7 @@ import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './styles.css'
 import './workspace.css'
+import './research.css'
 import { appName } from './services/supabase'
 
 document.title = appName

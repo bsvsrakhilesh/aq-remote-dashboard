@@ -7,8 +7,10 @@
 3. Create the first Auth user in Authentication → Users.
 4. Register each new physical logger with the admin-only SQL Editor helper in [Fleet provisioning](FLEET_PROVISIONING.md). Existing registered devices keep their current keys.
 5. Set secrets: `supabase secrets set ALLOWED_ORIGINS=http://localhost:5173,https://<user>.github.io CLEANUP_SECRET=<random-secret>`.
-6. Deploy: `supabase functions deploy device-heartbeat device-telemetry device-next-command device-command-ack device-file-catalog request-file-list request-file-download cancel-file-download device-upload-session device-download-progress device-download-complete device-download-failed cleanup-expired-downloads`.
+6. Deploy: `supabase functions deploy device-heartbeat device-telemetry device-next-command device-command-ack device-file-catalog request-file-list request-file-download cancel-file-download device-upload-session device-download-progress device-download-complete device-download-failed cleanup-expired-downloads process-csv-history import-history`.
 7. Schedule cleanup with Supabase Cron or a trusted scheduler that POSTs to the cleanup function with `X-Cleanup-Secret`.
+
+Migrations `202609250001` through `202609250006` add the research workspace. The database schedules CSV collection, alert evaluation, and opt-in retention. The CSV coordinator checks every minute for completed transfers but queues normal snapshots only at midnight and noon IST. Before deploying to a different Supabase project, change the project URL in `202609250002_csv_history_schedule.sql`. `process-csv-history` uses a random Vault token created by the migration. `import-history` requires a signed-in researcher and accepts verified dated CSV files in small chunks. These functions have `verify_jwt=false` in `supabase/config.toml` because each performs its own authentication check.
 
 ### Device ID in firmware
 

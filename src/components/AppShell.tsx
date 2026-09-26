@@ -1,5 +1,8 @@
 import {
   Activity,
+  ChartNoAxesCombined,
+  SlidersHorizontal,
+  FolderArchive,
   Bell,
   Database,
   FlaskConical,
@@ -15,15 +18,19 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { demoMode, readOnlyMode, supabase } from '../services/supabase'
+import { AlertInbox } from './AlertInbox'
 
 const allNav = [
   { to: '/', label: 'Overview', icon: LayoutDashboard },
   { to: '/devices', label: 'Devices', icon: RadioTower },
+  { to: '/analysis', label: 'Analysis', icon: ChartNoAxesCombined },
+  { to: '/operations', label: 'Operations', icon: SlidersHorizontal },
+  { to: '/library', label: 'Data library', icon: FolderArchive },
   { to: '/files', label: 'Data files', icon: Database },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 export function AppShell() {
-  const nav = readOnlyMode ? allNav.filter((item) => item.to === '/' || item.to === '/devices') : allNav
+  const nav = readOnlyMode ? allNav.filter((item) => ['/', '/devices', '/analysis'].includes(item.to)) : allNav
   const [menu, setMenu] = useState(false)
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
   const [notices, setNotices] = useState(false)
@@ -31,7 +38,9 @@ export function AppShell() {
   const sidebarRef = useRef<HTMLElement>(null)
   const location = useLocation()
   const currentPage = location.pathname.startsWith('/device/')
-    ? 'Device dashboard'
+    ? location.pathname.endsWith('/history')
+      ? 'One-minute history'
+      : 'Device dashboard'
     : (allNav.find((item) => item.to === location.pathname)?.label ?? 'Workspace')
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -163,11 +172,11 @@ export function AppShell() {
               >
                 <Bell size={18} />
               </button>
-              {notices && (
+              {!readOnlyMode && <AlertInbox open={notices} />}
+              {readOnlyMode && notices && (
                 <div className="notice-popover">
-                  <strong>Notification centre</strong>
-                  <p>No unread operational alerts.</p>
-                  <small>Health changes appear here.</small>
+                  <strong>Public workspace</strong>
+                  <p>Operational alerts are available to signed-in researchers.</p>
                 </div>
               )}
             </div>

@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "smoke:visual": "node scripts/visual-smoke.mjs",
     "smoke:auth": "node scripts/visual-auth.mjs",
-    "smoke:co2": "node scripts/visual-co2.mjs"
+    "smoke:co2": "node scripts/visual-co2.mjs",
+    "smoke:research": "node scripts/visual-research.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
