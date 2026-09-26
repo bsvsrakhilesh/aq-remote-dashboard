@@ -15,7 +15,7 @@ Goal: implement the complete dashboard-only feature set, with a cohesive, access
 - [x] Storage usage and opt-in retention, with preview/confirmation before deletion.
 - [x] Saved devices/date ranges/metrics/layouts with persistence and validation.
 - [x] Responsive light/dark UI, loading/empty/error states, keyboard access and print layout.
-- [ ] Unit tests, database security tests and browser interaction checks; deploy and verify production.
+- [x] Unit tests, database security tests and browser interaction checks; deploy and verify production.
 
 ## Design and data rules
 
@@ -30,3 +30,5 @@ Historical imports stream the browser file in complete-minute chunks of approxim
 2026-09-25: inspected clean worktree at `10aa02f`, current routes, schemas, device types and CSV sync implementation. No firmware changes planned.
 
 2026-09-27: Analysis, Operations, and Data library routes built. Supabase migrations 003–006 applied; cloud import function deployed. Research SQL returned live outdoor snapshot and minute data. Cron alert runs succeeded. Rollback-only database test covered aggregation, offline alert open/resolve, import retry idempotency, retention confirmation, and privileges. Sixty-one unit tests passed. Browser checks covered all three routes at 1440, 390 and 320 pixels in both colour themes, plus saved views, weekly reports, rules, notes, retention preview and CSV preview. Production publication remains to verify.
+
+Production verification: commit `4a0d491` passed the GitHub Pages build and deployment workflow. The live app serves Analysis, Operations, and Data library chunks with the linked Supabase project configured. The import endpoint returned 401 without an authenticated user and accepted the production origin in its CORS preflight. The existing twice-daily CSV coordinator and the three new maintenance jobs are active. A temporary signed-in test user exercised the live analysis queries and the complete CSV start/chunk/finish flow against a temporary logger; the stored PM1 and PM2.5 averages were correct. The user, logger, test readings, and import record were removed, then independently verified absent from the database. Production browser sign-in under a real researcher account remains subject to that account's credentials and browser state.

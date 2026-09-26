@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Database, FileUp, HardDrive, RefreshCw, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useDevices } from '../hooks/useData'
@@ -50,6 +50,7 @@ export function DataLibraryPage() {
   const [tab, setTab] = useState<'import' | 'storage'>('import')
   const [deviceId, setDeviceId] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<{
     rows: number
     minutes: number
@@ -197,6 +198,7 @@ export function DataLibraryPage() {
         )
         imports.reload()
         setFile(null)
+        if (fileInputRef.current) fileInputRef.current.value = ''
         setPreview(null)
       }
     } catch (error) {
@@ -311,6 +313,7 @@ export function DataLibraryPage() {
               <label>
                 CSV file
                 <input
+                  ref={fileInputRef}
                   aria-label="Choose historical CSV"
                   type="file"
                   accept=".csv,text/csv"
