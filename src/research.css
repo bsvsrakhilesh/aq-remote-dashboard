@@ -256,6 +256,131 @@
   max-width: 270px;
   color: #bf5050 !important;
 }
+.reliability-panel {
+  padding: 26px;
+}
+.reliability-head {
+  align-items: flex-start;
+  gap: 20px;
+}
+.reliability-head h2 {
+  margin-bottom: 8px;
+}
+.reliability-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.reliability-period {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.reliability-period .button {
+  border: 0;
+  background: transparent;
+}
+.reliability-period .button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: 0 1px 5px #00000010;
+}
+.reliability-explainer {
+  max-width: 900px;
+  margin: 15px 0 25px;
+}
+.reliability-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-block: 1px solid var(--line);
+  margin-bottom: 24px;
+}
+.reliability-kpis > div {
+  min-width: 0;
+  padding: 19px 18px;
+  border-right: 1px solid var(--line);
+}
+.reliability-kpis > div:first-child {
+  padding-left: 0;
+}
+.reliability-kpis > div:last-child {
+  border-right: 0;
+}
+.reliability-kpis span,
+.reliability-kpis small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.reliability-kpis strong {
+  display: block;
+  margin: 7px 0 3px;
+  font-size: 1.45rem;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.reliability-kpis strong small {
+  display: inline;
+  font-weight: 400;
+}
+.reliability-table tbody th small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+.reliability-coverage {
+  min-width: 145px;
+}
+.reliability-coverage strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.reliability-meter {
+  height: 5px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+.reliability-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand);
+}
+.reliability-table .reliability-coverage small {
+  margin-top: 5px;
+}
+.reliability-table .reliability-retention {
+  color: var(--brand);
+}
+.reliability-failures {
+  color: #b76620;
+}
+.reliability-loading {
+  padding: 34px 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.reliability-footnote {
+  margin: 18px 0 0;
+}
+@media (max-width: 900px) {
+  .reliability-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .reliability-kpis > div:nth-child(2) {
+    border-right: 0;
+  }
+  .reliability-kpis > div:nth-child(3) {
+    padding-left: 0;
+  }
+}
 @media (max-width: 700px) {
   .sync-table-wrap {
     overflow: visible;
@@ -309,6 +434,17 @@
   .sync-table .research-actions {
     justify-content: flex-start;
   }
+  .reliability-table tr td:last-child {
+    display: flex;
+  }
+  .reliability-table tr td:last-child::before {
+    display: inline;
+    margin: 0;
+  }
+  .reliability-coverage {
+    min-width: 115px;
+    width: min(52vw, 200px);
+  }
 }
 .operational-notices {
   width: 310px;
@@ -337,6 +473,18 @@
   .operations-card .section-head {
     flex-wrap: wrap;
     gap: 12px;
+  }
+  .reliability-panel {
+    padding: 18px;
+  }
+  .reliability-head .research-actions {
+    flex-wrap: wrap;
+  }
+  .reliability-kpis > div {
+    padding: 14px 10px;
+  }
+  .reliability-kpis strong {
+    font-size: 1.16rem;
   }
 }
 .research-page {

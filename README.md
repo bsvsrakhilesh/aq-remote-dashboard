@@ -6,7 +6,7 @@ A research-grade remote monitoring dashboard for XIAO ESP32-S3 environmental log
 
 The production GitHub Pages deployment is available at [bsvsrakhilesh.github.io/aq-remote-dashboard](https://bsvsrakhilesh.github.io/aq-remote-dashboard/). Until Supabase variables are configured, it runs in an explicitly labelled, isolated demo mode.
 
-The interface includes fleet search/filter/sort, device charts, system diagnostics, SD-card catalogs, authenticated temporary downloads, twice-daily one-minute CSV history, research analysis, cloud alert rules, field notes, historical CSV import, retention controls, saved views, dark mode, and responsive mobile layouts.
+The interface includes fleet search/filter/sort, device charts, system diagnostics, SD-card catalogs, authenticated temporary downloads, twice-daily one-minute CSV history, research analysis, 7/30-day fleet reliability, cloud alert rules, field notes, historical CSV import, retention controls, saved views, dark mode, and responsive mobile layouts.
 
 ## Run locally
 

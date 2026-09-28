@@ -48,6 +48,16 @@ try {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       await page.goto(`${base}/#/operations`, { waitUntil: 'networkidle' })
       await page.getByRole('heading', { name: 'Operations', exact: true }).waitFor()
+      await page.getByRole('heading', { name: 'Fleet reliability' }).waitFor()
+      await page.getByRole('button', { name: '30 days' }).click()
+      await page.getByText('Reporting and CSV coverage across the last 30 completed days in IST.').waitFor()
+      assert.equal(await page.getByRole('button', { name: '30 days' }).getAttribute('aria-pressed'), 'true')
+      assert.equal(await page.getByRole('button', { name: '7 days' }).getAttribute('aria-pressed'), 'false')
+      await page.waitForTimeout(250) // Let the segmented control's 180 ms colour transition settle.
+      assert.match(await page.locator('.reliability-table').innerText(), /AQ03[\s\S]*%/)
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+      await page.screenshot({ path: `.smoke/research-reliability-${theme}-${width}.png`, fullPage: true })
+      await page.getByRole('button', { name: 'Alerts' }).click()
       if (width === 1440 && theme === 'light') {
         await page.getByRole('button', { name: 'Add rule' }).click()
         await page.getByText('Alert rule saved. Cloud evaluation is active.').waitFor()

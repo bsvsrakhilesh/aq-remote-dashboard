@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Bell, Check, CloudDownload, NotebookPen, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Activity, Bell, Check, CloudDownload, NotebookPen, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { FleetReliability } from '../components/FleetReliability'
 import { useDevices } from '../hooks/useData'
 import { useWorkspaceTable, workspaceRpc, workspaceWrite } from '../hooks/useWorkspaceTable'
 import { demoMode, supabase } from '../services/supabase'
@@ -60,7 +61,8 @@ export function OperationsPage() {
   const notes = useWorkspaceTable<Note>('deployment_notes', 'occurred_at')
   const jobs = useWorkspaceTable<SyncJob>('csv_history_jobs', 'created_at')
   const settings = useWorkspaceTable<SyncSetting>('csv_history_settings', 'device_id')
-  const [tab, setTab] = useState<'alerts' | 'notes' | 'sync'>('alerts')
+  const [tab, setTab] = useState<'reliability' | 'alerts' | 'notes' | 'sync'>('reliability')
+  const [reliabilityRefresh, setReliabilityRefresh] = useState(0)
   const [deviceId, setDeviceId] = useState('')
   const [metric, setMetric] = useState('offline')
   const [threshold, setThreshold] = useState(50)
@@ -114,7 +116,7 @@ export function OperationsPage() {
         <div>
           <span className="eyebrow">Keep the network dependable</span>
           <h1>Operations</h1>
-          <p>Cloud-evaluated alerts, a deployment logbook, and visibility into every CSV sync.</p>
+          <p>Fleet reliability, cloud-evaluated alerts, a deployment logbook, and every CSV sync.</p>
         </div>
         <button
           className="button secondary"
@@ -125,6 +127,7 @@ export function OperationsPage() {
             notes.reload()
             jobs.reload()
             settings.reload()
+            setReliabilityRefresh((value) => value + 1)
           }}
         >
           <RefreshCw size={16} />
@@ -159,6 +162,7 @@ export function OperationsPage() {
       <nav className="research-tabs" aria-label="Operations views">
         {(
           [
+            { key: 'reliability', label: 'Fleet reliability', icon: Activity },
             { key: 'alerts', label: 'Alerts', icon: Bell },
             { key: 'notes', label: 'Deployment notes', icon: NotebookPen },
             { key: 'sync', label: 'CSV sync', icon: CloudDownload },
@@ -181,7 +185,8 @@ export function OperationsPage() {
           {failure || errors[0]}
         </div>
       )}
-      {tab !== 'sync' && (
+      {tab === 'reliability' && <FleetReliability devices={fleet.data} refreshToken={reliabilityRefresh} />}
+      {tab !== 'sync' && tab !== 'reliability' && (
         <label className="operations-device">
           Logger
           <select
