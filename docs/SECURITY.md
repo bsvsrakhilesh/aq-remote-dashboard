@@ -1,7 +1,7 @@
 # Security model
 
 - Human users authenticate with Supabase Auth. RLS limits browser reads and makes download requests user-owned.
-- Optional anonymous access is double-gated by `VITE_PUBLIC_READ_ONLY=true` and `dashboard_settings.public_read_only=true`. Its RLS policies expose only devices and five-minute telemetry—not files, commands, downloads, or configuration.
+- Optional anonymous access is double-gated by `VITE_PUBLIC_READ_ONLY=true` and `dashboard_settings.public_read_only=true`. Its RLS policies expose only devices and fifteen-minute telemetry—not files, commands, downloads, or configuration.
 - ESP32 devices receive unique random credentials. Edge Functions validate the bcrypt hash through a service-role-only function; secrets are not shared between devices.
 - Browser roles receive column-level access to safe device metadata only. `devices.secret_hash` and `devices.ip_address` cannot be selected through authenticated or anonymous API requests, even when RLS permits the row.
 - The frontend contains only the publishable anon key. Never place the service-role key, device keys, or Wi-Fi credentials in GitHub variables prefixed with `VITE_`.

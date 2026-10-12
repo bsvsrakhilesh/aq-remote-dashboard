@@ -1,6 +1,6 @@
 # AQ Observatory
 
-A research-grade remote monitoring dashboard for XIAO ESP32-S3 environmental loggers. It presents five-minute SPS30/SHT3x summaries, heartbeat-derived status, hardware diagnostics, SD file catalogs, and secure on-demand CSV transfer—without replacing the existing local ESP32 dashboard or permanently mirroring full-resolution data.
+A research-grade remote monitoring dashboard for XIAO ESP32-S3 environmental loggers. It presents fifteen-minute SPS30/SHT3x snapshots, heartbeat-derived status, hardware diagnostics, SD file catalogs, and secure on-demand CSV transfer—without replacing the existing local ESP32 dashboard or permanently mirroring full-resolution data.
 
 ## Live application
 
@@ -62,4 +62,4 @@ Public read-only mode also requires the server-side `dashboard_settings.public_r
 - Missing chart points: nulls and missed uploads intentionally render as gaps.
 - CSV not available: confirm the logger polled and acknowledged the command, storage bucket is private, and the request has not expired.
 
-The firmware sketches poll cloud commands every five minutes to control Edge Function usage. Flash each logger to apply firmware changes; updating the website does not update devices. Full-resolution SD logging and the local ESP32 dashboard continue independently of the cloud.
+The firmware sketches send a heartbeat and telemetry snapshot and poll cloud commands every fifteen minutes to control Edge Function usage. Flash each logger to apply firmware changes; updating the website does not update devices. Full-resolution SD logging and the local ESP32 dashboard continue independently of the cloud.

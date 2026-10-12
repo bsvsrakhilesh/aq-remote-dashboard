@@ -128,7 +128,7 @@ export function FleetReliability({ devices, refreshToken }: { devices: Device[];
         </div>
       </div>
       <p className="research-source-note reliability-explainer">
-        New loggers count from registration. Reporting availability is the proportion of five-minute slots with a
+        New loggers count from registration. Reporting availability is the proportion of fifteen-minute slots with a
         reading—not a record of electrical uptime. CSV coverage counts imported one-minute records; delayed collections
         can lower it until they catch up. Configured data retention shortens the eligible minute period. No gaps are
         filled or estimated.

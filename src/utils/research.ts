@@ -44,7 +44,7 @@ export function researchWindow(config: Pick<ResearchConfig, 'from' | 'until' | '
   return {
     from,
     until: Math.max(from, until),
-    expected: Math.max(0, Math.floor((until - from) / (config.source === 'minute' ? 60000 : 300000))),
+    expected: Math.max(0, Math.floor((until - from) / (config.source === 'minute' ? 60000 : 900000))),
   }
 }
 export function summarize(rows: SeriesRow[], key: Metric, expected: number) {
@@ -83,7 +83,7 @@ export function summarize(rows: SeriesRow[], key: Metric, expected: number) {
 export function reportPeriods(from: number, until: number, source: ResearchSource, group: ReportGroup) {
   if (until <= from) return []
   const offset = 19800000
-  const cadence = source === 'minute' ? 60000 : 300000
+  const cadence = source === 'minute' ? 60000 : 900000
   const weekday = new Date(from + offset).getUTCDay()
   let start = group === 'weekly' ? from - ((weekday + 6) % 7) * 86400000 : from
   const step = group === 'daily' ? 86400000 : group === 'weekly' ? 7 * 86400000 : until - from

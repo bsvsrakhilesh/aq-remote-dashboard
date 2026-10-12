@@ -295,7 +295,7 @@ export function AnalysisPage() {
               onChange={(e) => setConfig((c) => ({ ...c, source: e.target.value as ResearchConfig['source'] }))}
             >
               <option value="minute">One-minute CSV averages</option>
-              <option value="snapshot">Five-minute live snapshots</option>
+              <option value="snapshot">Fifteen-minute live snapshots</option>
             </select>
           </label>
           <div className="research-presets" aria-label="Date presets">
@@ -407,7 +407,7 @@ export function AnalysisPage() {
         </div>
         <div>
           <span>Source resolution</span>
-          <strong>{config.source === 'minute' ? '1 minute' : '5 minutes'}</strong>
+          <strong>{config.source === 'minute' ? '1 minute' : '15 minutes'}</strong>
         </div>
         <div>
           <span>Displayed comparison</span>
@@ -432,14 +432,14 @@ export function AnalysisPage() {
         <h1>AQ Observatory · research report</h1>
         <p>
           {config.from} — {config.until} IST ·{' '}
-          {config.source === 'minute' ? 'One-minute CSV averages' : 'Five-minute snapshots'} · generated{' '}
+          {config.source === 'minute' ? 'One-minute CSV averages' : 'Fifteen-minute snapshots'} · generated{' '}
           {stamp(Date.now())} IST
         </p>
       </div>
       <p className="research-source-note">
         {config.source === 'minute'
           ? 'CSV history updates at midnight and noon IST. Coverage excludes time after the latest scheduled cutoff. Means weight each valid minute equally.'
-          : 'Live snapshots are sampled approximately every five minutes. Coverage is an estimate against that cadence.'}{' '}
+          : 'Live snapshots are sampled approximately every fifteen minutes. Coverage is an estimate against that cadence.'}{' '}
         Missing periods are not filled. All times are IST.
       </p>
       {(data.error || fleet.error) && (
@@ -736,7 +736,7 @@ export function AnalysisPage() {
                 Minima and maxima are from the underlying{' '}
                 {config.source === 'minute'
                   ? 'one-minute averages, not individual raw SD samples'
-                  : 'five-minute snapshots'}
+                  : 'fifteen-minute snapshots'}
                 . Means are weighted by valid source points. Coverage uses the selected time window and does not fill
                 missing points.
               </p>

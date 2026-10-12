@@ -1,4 +1,4 @@
-// Supabase limits individual responses; a month of five-minute samples needs multiple pages.
+// Supabase limits individual responses; a month of fifteen-minute samples needs multiple pages.
 export async function collectTelemetryPages<T>(fetchPage: (from: number, to: number) => Promise<T[]>): Promise<T[]> {
   const result: T[] = []
   const pageSize = 1000

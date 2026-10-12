@@ -156,7 +156,7 @@ export function SettingsPage() {
           <span className="eyebrow">About this workspace</span>
           <h2>AQ Observatory 1.0</h2>
           <p>
-            Remote five-minute telemetry and temporary SD-file transfer for XIAO ESP32-S3 environmental loggers. The
+            Remote fifteen-minute telemetry and temporary SD-file transfer for XIAO ESP32-S3 environmental loggers. The
             local logger dashboard and full-resolution SD recording remain independent of this cloud interface.
           </p>
         </div>

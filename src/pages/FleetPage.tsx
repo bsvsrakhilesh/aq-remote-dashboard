@@ -50,7 +50,7 @@ export function FleetPage() {
         <div>
           <span className="eyebrow">Environmental monitoring network</span>
           <h1>Fleet overview</h1>
-          <p>Live operational state and latest five-minute summaries from every field logger.</p>
+          <p>Live operational state and latest fifteen-minute summaries from every field logger.</p>
         </div>
         <button className="last-updated refresh-plain" onClick={reload}>
           <span className="live-pulse" />
@@ -103,7 +103,7 @@ export function FleetPage() {
         <div className="summary-card">
           <span>Telemetry today</span>
           <strong>{telemetryToday.loading ? '—' : telemetryToday.data.toLocaleString()}</strong>
-          <small>{telemetryToday.error ? 'Count unavailable' : 'Five-minute records'}</small>
+          <small>{telemetryToday.error ? 'Count unavailable' : 'Fifteen-minute records'}</small>
         </div>
       </section>
       <section className="section-head">

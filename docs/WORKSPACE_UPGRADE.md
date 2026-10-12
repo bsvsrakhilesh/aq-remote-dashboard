@@ -19,7 +19,7 @@ Goal: implement the complete dashboard-only feature set, with a cohesive, access
 
 ## Design and data rules
 
-Use existing visual tokens, typography and navigation. Organize into Analysis (comparison, heatmap, reports and quality), Operations (alerts, deployment notes and sync), and Data library (import, export and retention). No synthetic values in production; demo fixtures remain isolated. Display IST explicitly. Distinguish five-minute snapshots from minute averages and account for the last scheduled CSV cutoff in coverage calculations.
+Use existing visual tokens, typography and navigation. Organize into Analysis (comparison, heatmap, reports and quality), Operations (alerts, deployment notes and sync), and Data library (import, export and retention). No synthetic values in production; demo fixtures remain isolated. Display IST explicitly. Distinguish fifteen-minute snapshots from minute averages and account for the last scheduled CSV cutoff in coverage calculations.
 
 In-app alerts are evaluated in the cloud and retained while the browser is closed. Optional browser notifications require explicit permission and an open dashboard; do not imply email/SMS delivery. PDF uses the browser's print/save-to-PDF workflow. Retention is off by default and never deletes SD files. Thresholds are user-defined research settings, not medical or regulatory claims.
 

@@ -12,6 +12,8 @@
 
 Migrations `202609250001` through `202609250006` add the research workspace. The database schedules CSV collection, alert evaluation, and opt-in retention. The CSV coordinator checks every minute for completed transfers but queues normal snapshots only at midnight and noon IST. Before deploying to a different Supabase project, change the project URL in `202609250002_csv_history_schedule.sql`. `process-csv-history` uses a random Vault token created by the migration. `import-history` requires a signed-in researcher and accepts verified dated CSV files in small chunks. These functions have `verify_jwt=false` in `supabase/config.toml` because each performs its own authentication check.
 
+Migration `202610120001_fifteen_minute_cadence.sql` updates reporting coverage, alert evaluation, logger availability checks, and CSV transfer waits for firmware 1.2.3. Deploy it with `supabase db push`, then deploy the updated `device-next-command` function. Flash all seven loggers with firmware 1.2.3; the website and database changes alone do not change device traffic.
+
 ### Device ID in firmware
 
 The ready-to-upload indoor sketch and private-key setup are documented in [aq_indoor01 setup](AQ_INDOOR01_SETUP.md); the SPS30 + SHT3x variant is in [aq_outdoor01 setup](AQ_OUTDOOR01_SETUP.md). Migration `202609230001_lowercase_device_code.sql` renames the existing `AQ01` record to `aq_indoor01`, preserving its UUID, secret hash, and linked data. Device authentication is case-sensitive. The corresponding dashboard route is `#/device/aq_indoor01`. The isolated demo still uses example IDs such as `AQ01`.

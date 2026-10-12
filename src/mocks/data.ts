@@ -75,7 +75,7 @@ export const filesFor = (code: string): DeviceFile[] =>
 
 export function telemetryFor(device: Device, range: RangeKey): Reading[] {
   const hours = rangeHours[range]
-  const points = Math.min(Math.floor(hours * 12), 360)
+  const points = Math.min(Math.floor(hours * 4), 360)
   const step = (hours * 60) / points
   return Array.from({ length: points }, (_, index) => {
     const phase = index / 13 + Number(device.id)

@@ -30,7 +30,7 @@ The sketch is [`firmware/aq_outdoor01/aq_outdoor01.ino`](../firmware/aq_outdoor0
 
 4. Open `firmware\aq_outdoor01\aq_outdoor01.ino` in Arduino IDE. Select **XIAO ESP32S3**, choose the serial port, and upload. The Supabase functions URL and device ID are already set. Device requests authenticate with `X-Device-ID` and the unique `X-Device-Key`; no Supabase anon key is needed in firmware.
 
-5. Check the Serial Monitor at **115200 baud**. Supply Wi-Fi credentials if prompted. Local SD logging continues without Wi-Fi and uses a recovery CSV when time is unverified. It creates weekly CSV files when time is verified. After the first successful SD row, the buzzer gives two beeps. Cloud heartbeat runs every minute; telemetry every five minutes; commands are polled every five minutes while connected. A new file-list or download command may wait up to five minutes before the logger receives it.
+5. Check the Serial Monitor at **115200 baud**. Supply Wi-Fi credentials if prompted. Local SD logging continues without Wi-Fi and uses a recovery CSV when time is unverified. It creates weekly CSV files when time is verified. After the first successful SD row, the buzzer gives two beeps. Cloud heartbeat, telemetry and command polling each run every fifteen minutes while connected. A new file-list or download command may wait up to fifteen minutes before the logger receives it.
 
 6. Verify registration in the SQL Editor without exposing the key:
 

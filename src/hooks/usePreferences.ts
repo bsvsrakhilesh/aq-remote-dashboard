@@ -11,8 +11,8 @@ export interface Preferences {
 }
 
 export const defaultPreferences: Preferences = {
-  onlineMinutes: 2,
-  staleMinutes: 10,
+  onlineMinutes: 20,
+  staleMinutes: 40,
   refreshSeconds: 30,
   realtime: true,
   offlineAlerts: true,
@@ -25,7 +25,14 @@ const STORAGE_KEY = 'aq-observatory-preferences'
 function readPreferences(): Preferences {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    return saved ? { ...defaultPreferences, ...(JSON.parse(saved) as Partial<Preferences>) } : defaultPreferences
+    if (!saved) return defaultPreferences
+    const previous = JSON.parse(saved) as Partial<Preferences>
+    // Upgrade browsers still using the old defaults; keep explicitly customized thresholds.
+    if (previous.onlineMinutes === 2 && previous.staleMinutes === 10) {
+      previous.onlineMinutes = defaultPreferences.onlineMinutes
+      previous.staleMinutes = defaultPreferences.staleMinutes
+    }
+    return { ...defaultPreferences, ...previous }
   } catch {
     return defaultPreferences
   }

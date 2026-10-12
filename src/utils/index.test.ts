@@ -13,9 +13,9 @@ import {
 describe('device status', () => {
   const now = new Date('2026-09-22T12:00:00Z')
   it('uses heartbeat thresholds', () => {
-    expect(getDeviceState('2026-09-22T11:59:00Z', now)).toBe('online')
-    expect(getDeviceState('2026-09-22T11:55:00Z', now)).toBe('stale')
-    expect(getDeviceState('2026-09-22T11:40:00Z', now)).toBe('offline')
+    expect(getDeviceState('2026-09-22T11:45:00Z', now)).toBe('online')
+    expect(getDeviceState('2026-09-22T11:35:00Z', now)).toBe('stale')
+    expect(getDeviceState('2026-09-22T11:15:00Z', now)).toBe('offline')
   })
   it('honours user-configured heartbeat thresholds', () => {
     expect(getDeviceState('2026-09-22T11:57:00Z', now, { onlineMinutes: 5, staleMinutes: 15 })).toBe('online')

@@ -194,7 +194,7 @@ export function DevicePage() {
         <div className="section-head">
           <div>
             <h2>Environmental telemetry</h2>
-            <p>Five-minute summary data · gaps indicate unavailable readings</p>
+            <p>Fifteen-minute summary data · gaps indicate unavailable readings</p>
           </div>
           <div className="range-picker" role="group" aria-label="Telemetry period">
             {(['6h', '24h', '7d', '30d'] as RangeKey[]).map((item) => (
@@ -416,7 +416,7 @@ export function DevicePage() {
       <section className="architecture-note">
         <div>
           <strong>Remote dashboard</strong>
-          <span>5-minute telemetry, device health and requested CSV transfers.</span>
+          <span>15-minute telemetry, device health and requested CSV transfers.</span>
         </div>
         <div>
           <strong>Local dashboard</strong>

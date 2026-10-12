@@ -5,10 +5,10 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(request) })
   const auth = await authenticateDevice(request)
   if (!auth) return json(request, { ok: false, error: 'unauthorized' }, 401)
-  const expiry = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+  const expiry = new Date(Date.now() - 60 * 60 * 1000).toISOString()
   await auth.db
     .from('device_commands')
-    .update({ status: 'expired', error_message: 'Command was not acknowledged within 30 minutes' })
+    .update({ status: 'expired', error_message: 'Command was not acknowledged within 60 minutes' })
     .eq('device_id', auth.device.id)
     .eq('status', 'queued')
     .lt('created_at', expiry)

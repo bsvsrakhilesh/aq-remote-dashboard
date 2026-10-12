@@ -481,8 +481,8 @@ export function DataLibraryPage() {
               <span className="eyebrow">Opt-in policy</span>
               <h2>Minute-history retention</h2>
               <p>
-                Choose how long cloud minute points are kept for one logger. This does not delete five-minute snapshots,
-                manual SD files, or files on the logger.
+                Choose how long cloud minute points are kept for one logger. This does not delete fifteen-minute
+                snapshots, manual SD files, or files on the logger.
               </p>
               <label>
                 Logger

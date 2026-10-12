@@ -325,7 +325,7 @@ export function useDeviceFiles(device: Device | null): DeviceFilesState {
     if (invokeError instanceof FunctionsRelayError)
       throw new Error('The command service is temporarily unavailable. Please retry shortly.')
     if (invokeError) throw new Error('File-list request failed. Please retry.')
-    ;[3000, 8000, 15000, 25000, 60000, 120000, 180000, 240000, 300000, 360000].forEach((delay) =>
+    ;[3000, 15000, 60000, 300000, 600000, 900000, 960000, 1200000, 1800000].forEach((delay) =>
       window.setTimeout(reload, delay),
     )
     return 'File-list command queued. This list will refresh when the logger responds.'

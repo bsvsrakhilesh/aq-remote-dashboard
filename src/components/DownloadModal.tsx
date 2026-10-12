@@ -160,7 +160,7 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
         }
       }
       await check()
-      if (active && polling) poll = window.setInterval(() => void check(), 2000)
+      if (active && polling) poll = window.setInterval(() => void check(), 10000)
     })()
     return () => {
       active = false
@@ -195,7 +195,7 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
                 ? 'The logger could not complete this request.'
                 : 'The transfer request could not be started.'
               : status === 'queued'
-                ? 'The logger is checking for requests. Keep this window open while it responds.'
+                ? 'The logger checks for requests every 15 minutes. Keep this window open while it responds.'
                 : 'Keep this window open while the logger streams directly from its SD card.'}
         </p>
         <div className="file-summary">

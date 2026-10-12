@@ -4,7 +4,7 @@ import type { DeviceState, DownloadStatus, RangeKey } from '../types'
 export const getDeviceState = (
   lastSeen: string,
   now = new Date(),
-  thresholds = { onlineMinutes: 2, staleMinutes: 10 },
+  thresholds = { onlineMinutes: 20, staleMinutes: 40 },
 ): DeviceState => {
   const minutes = (now.getTime() - new Date(lastSeen).getTime()) / 60000
   return minutes <= thresholds.onlineMinutes ? 'online' : minutes <= thresholds.staleMinutes ? 'stale' : 'offline'

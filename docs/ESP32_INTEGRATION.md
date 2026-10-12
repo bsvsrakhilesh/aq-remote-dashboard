@@ -4,17 +4,17 @@ Cloud work is secondary. Use short timeouts, an independent FreeRTOS task or a c
 
 All device endpoints use `POST` except command polling. Include `X-Device-ID: AQ01`, `X-Device-Key: <unique random secret>`, and `Content-Type: application/json`. Base URL: `https://<project-ref>.supabase.co/functions/v1`.
 
-| Operation          | Method and path                  | Typical response                     |
-| ------------------ | -------------------------------- | ------------------------------------ |
-| Heartbeat          | `POST /device-heartbeat`         | `{"ok":true}`                        |
-| Five-minute sample | `POST /device-telemetry`         | `{"ok":true}`                        |
-| Poll commands      | `GET /device-next-command`       | `{"command":null}` or command object |
-| Acknowledge        | `POST /device-command-ack`       | `{"ok":true}`                        |
-| File catalog       | `POST /device-file-catalog`      | `{"ok":true,"count":2}`              |
-| Start upload       | `POST /device-upload-session`    | signed upload destination            |
-| Report progress    | `POST /device-download-progress` | calculated percentage                |
-| Finish upload      | `POST /device-download-complete` | expiry timestamp                     |
-| Report failure     | `POST /device-download-failed`   | terminal failed status               |
+| Operation             | Method and path                  | Typical response                     |
+| --------------------- | -------------------------------- | ------------------------------------ |
+| Heartbeat             | `POST /device-heartbeat`         | `{"ok":true}`                        |
+| Fifteen-minute sample | `POST /device-telemetry`         | `{"ok":true}`                        |
+| Poll commands         | `GET /device-next-command`       | `{"command":null}` or command object |
+| Acknowledge           | `POST /device-command-ack`       | `{"ok":true}`                        |
+| File catalog          | `POST /device-file-catalog`      | `{"ok":true,"count":2}`              |
+| Start upload          | `POST /device-upload-session`    | signed upload destination            |
+| Report progress       | `POST /device-download-progress` | calculated percentage                |
+| Finish upload         | `POST /device-download-complete` | expiry timestamp                     |
+| Report failure        | `POST /device-download-failed`   | terminal failed status               |
 
 Heartbeat body:
 
@@ -44,7 +44,7 @@ File-catalog body: `{"command_id":"<list-files-command-uuid>","files":[{"name":"
 
 ### SCD30 CO₂ on aq_indoor01
 
-This logger has CO₂ enabled in the registry. Use `X-Device-ID: aq_indoor01` with its existing device secret. Send the SCD30's measured CO₂ concentration as the optional numeric `co2` field in the same five-minute telemetry request:
+This logger has CO₂ enabled in the registry. Use `X-Device-ID: aq_indoor01` with its existing device secret. Send the SCD30's measured CO₂ concentration as the optional numeric `co2` field in the same fifteen-minute telemetry request:
 
 ```json
 {
@@ -83,7 +83,7 @@ The dashboard shows a CO₂ value, a ppm history chart with all four time ranges
 
 ### Background cloud task
 
-The reference sketches poll `device-next-command` every five minutes while connected. File-list and download requests can wait up to five minutes before the logger receives them. At this cadence, one continuously connected logger makes about 2,016 Edge Function invocations per day: 1,440 heartbeats, 288 telemetry uploads, and 288 command polls, plus occasional transfer requests. Seven such loggers make about 437,472 regular invocations in a 31-day month. Review the organization's usage page before adding more loggers or changing these intervals; other projects in the same organization share the quota.
+The reference sketches send a heartbeat and telemetry snapshot and poll `device-next-command` every fifteen minutes while connected. File-list and download requests can wait up to fifteen minutes before the logger receives them. At this cadence, one continuously connected logger makes about 288 Edge Function invocations per day: 96 heartbeats, 96 telemetry uploads, and 96 command polls, plus occasional transfer requests. Seven such loggers make about 62,496 regular invocations in a 31-day month; fifty make about 446,400. The 500,000-invocation Free allowance would leave only 53,600 invocations for transfers, retries, other functions, and other projects at fifty devices. Review the organization's usage page before adding loggers.
 
 ```cpp
 void cloudTask() {

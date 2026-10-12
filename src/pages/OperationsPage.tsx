@@ -211,8 +211,8 @@ export function OperationsPage() {
               <span className="eyebrow">Define what matters</span>
               <h2>New alert rule</h2>
               <p>
-                Evaluated every minute using existing heartbeats and five-minute snapshots. Rules are shared with your
-                research team.
+                Evaluated every minute using existing heartbeats and fifteen-minute snapshots. Rules are shared with
+                your research team.
               </p>
               <form
                 onSubmit={(e) => {

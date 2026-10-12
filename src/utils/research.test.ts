@@ -85,6 +85,6 @@ describe('research analysis', () => {
         expected: 4320,
       },
     ])
-    expect(reportPeriods(from, from + 12 * 3600000, 'snapshot', 'period')[0].expected).toBe(144)
+    expect(reportPeriods(from, from + 12 * 3600000, 'snapshot', 'period')[0].expected).toBe(48)
   })
 })
