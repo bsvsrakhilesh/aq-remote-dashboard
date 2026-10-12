@@ -62,4 +62,4 @@ Public read-only mode also requires the server-side `dashboard_settings.public_r
 - Missing chart points: nulls and missed uploads intentionally render as gaps.
 - CSV not available: confirm the logger polled and acknowledged the command, storage bucket is private, and the request has not expired.
 
-The dashboard upgrade does not change logger firmware. Full-resolution SD logging and the local ESP32 dashboard continue independently of the cloud.
+The firmware sketches poll cloud commands every five minutes to control Edge Function usage. Flash each logger to apply firmware changes; updating the website does not update devices. Full-resolution SD logging and the local ESP32 dashboard continue independently of the cloud.

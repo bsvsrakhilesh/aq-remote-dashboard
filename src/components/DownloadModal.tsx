@@ -194,7 +194,9 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
               ? requestId
                 ? 'The logger could not complete this request.'
                 : 'The transfer request could not be started.'
-              : 'Keep this window open while the logger streams directly from its SD card.'}
+              : status === 'queued'
+                ? 'The logger checks for requests every five minutes. Keep this window open while it responds.'
+                : 'Keep this window open while the logger streams directly from its SD card.'}
         </p>
         <div className="file-summary">
           <div>

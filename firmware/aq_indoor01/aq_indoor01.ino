@@ -85,7 +85,7 @@ const char* DEVICE_HOSTNAME = "aq_indoor01";
 const char* NETWORK_HOSTNAME = "aq-indoor01";
 
 // Firmware identifier shown in the remote dashboard heartbeat.
-const char* FIRMWARE_VERSION = "pm-co2-iitd-cloud-1.2.1";
+const char* FIRMWARE_VERSION = "pm-co2-iitd-cloud-1.2.2";
 
 // -----------------------------------------------------------------------------
 // IIT Delhi WPA2-Enterprise / PEAP configuration
@@ -357,7 +357,7 @@ unsigned long lastWifiScanAttemptMs = 0;
  ***************************************************************/
 const unsigned long CLOUD_HEARTBEAT_INTERVAL_MS = 60000UL;   // 1 minute
 const unsigned long CLOUD_TELEMETRY_INTERVAL_MS = 300000UL;  // 5 minutes
-const unsigned long CLOUD_COMMAND_POLL_INTERVAL_MS = 5000UL; // 5 seconds
+const unsigned long CLOUD_COMMAND_POLL_INTERVAL_MS = 300000UL; // 5 minutes; budget Edge Function invocations
 const uint32_t CLOUD_HTTP_TIMEOUT_MS = 3000UL;
 
 unsigned long lastCloudHeartbeatMs = 0;

@@ -83,6 +83,8 @@ The dashboard shows a CO₂ value, a ppm history chart with all four time ranges
 
 ### Background cloud task
 
+The reference sketches poll `device-next-command` every five minutes while connected. File-list and download requests can wait up to five minutes before the logger receives them. At this cadence, one continuously connected logger makes about 2,016 Edge Function invocations per day: 1,440 heartbeats, 288 telemetry uploads, and 288 command polls, plus occasional transfer requests. Seven such loggers make about 437,472 regular invocations in a 31-day month. Review the organization's usage page before adding more loggers or changing these intervals; other projects in the same organization share the quota.
+
 ```cpp
 void cloudTask() {
   if (heartbeatDue()) sendHeartbeat();
