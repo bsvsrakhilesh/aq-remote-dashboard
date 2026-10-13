@@ -91,7 +91,7 @@ export function useMinuteHistory(deviceId: string | undefined, date: string, co2
         return
       }
       setStatusError(null)
-      setEnabled(settings.data?.enabled ?? true)
+      setEnabled(settings.data?.enabled ?? false)
       setSync(synced.data as Sync | null)
       setJob(jobs.data as Job | null)
     }

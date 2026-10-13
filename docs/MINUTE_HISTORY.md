@@ -2,6 +2,8 @@
 
 Each device has a **One-minute history** tab beside its live readings. The cloud requests completed rows from weekly SD CSV files twice daily, after **00:00 and 12:00 IST**. Automatic sync requires firmware **1.2.5 or newer**. Devices must be powered and online; no open browser is required.
 
+Newly registered loggers start with automatic one-minute sync paused. Existing loggers keep their previous setting. This prevents adding loggers from silently increasing Storage egress and database growth. A signed-in user can enable sync per logger in the One-minute history tab after reviewing capacity.
+
 The page has a device selector, IST date selector, import status, data-through timestamp, coverage counts, and a pause/resume control for signed-in users. Outdoor devices show PM1, PM2.5, PM10, temperature and humidity; indoor devices also show CO₂. The live readings page is unchanged.
 
 ## How it works
@@ -22,6 +24,6 @@ Migration `202609250002_csv_history_schedule.sql` targets this repository's link
 
 ## Usage and limits
 
-The first transfer of an existing weekly file can still be large. File transfers are capped at 100 MiB each. Supabase egress and database storage are limited on the Free tier, so monitor both as the fleet grows. The current one-minute history table has no automatic retention until a per-device policy is configured; plan retention before long-term fleet operation.
+The first transfer of an existing weekly file can still be large. File transfers are capped at 100 MiB each. Supabase egress and database storage are limited on the Free tier, so monitor both as the fleet grows. At the observed data rate, fifty loggers could exceed the Free egress allowance even with incremental CSV sync. Keep high-volume history opt-in and retain full-resolution originals on SD. The one-minute history table has no automatic retention until a per-device policy is configured; plan retention before long-term fleet operation.
 
 Pausing prevents new transfers but allows an already-started transfer to finish. A paused/offline logger's SD logging remains independent of the dashboard.

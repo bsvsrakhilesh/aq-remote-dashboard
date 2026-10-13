@@ -82,7 +82,9 @@ export function MinuteHistoryPage() {
                 ? 'CSV received; no readings before this sync cutoff'
                 : history.job
                   ? jobLabels[history.job.status]
-                  : 'Waiting for the first scheduled CSV download'}
+                  : history.enabled
+                    ? 'Waiting for the first scheduled CSV download'
+                    : 'Enable automatic sync to import minute history'}
             </p>
           </div>
           <span className={`history-sync-badge ${history.enabled ? 'active' : ''}`}>
@@ -90,9 +92,8 @@ export function MinuteHistoryPage() {
           </span>
         </div>
         <p>
-          At midnight and noon IST, the cloud requests the logger’s weekly CSV and averages its rows into one-minute
-          points. Your browser can be closed. Data before the latest scheduled cutoff appears here; missing values stay
-          missing.
+          When enabled, the cloud imports new complete rows from the logger's weekly CSV after midnight and noon IST.
+          Your browser can be closed. New loggers start paused to protect the shared free-tier allowance.
         </p>
         <div className="history-sync-meta">
           <span>
@@ -120,7 +121,7 @@ export function MinuteHistoryPage() {
             </strong>
           </span>
           <span>
-            Last CSV size{' '}
+            Last transfer{' '}
             <strong>
               {history.job?.source_bytes != null ? formatFileSize(history.job.source_bytes) : 'Not yet available'}
             </strong>
@@ -143,9 +144,8 @@ export function MinuteHistoryPage() {
           )}
         </div>
         <small className="history-bandwidth-note">
-          The existing logger transfers the full weekly file twice daily. Failed transfers may retry, and weekly
-          rollover includes the previous file. Temporary cloud copies are removed after import; SD originals stay on the
-          logger.
+          The first import of a weekly file may be large. Firmware 1.2.5 transfers only new rows after that. Failed
+          transfers may retry; SD originals stay on the logger. Minute history also uses database space.
         </small>
       </section>
       <section className="section-head history-date-head">
