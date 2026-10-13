@@ -72,22 +72,11 @@ export function SettingsPage() {
             <Cloud />
             <div>
               <h2>Data refresh</h2>
-              <p>Balance freshness with network usage.</p>
+              <p>Dashboard data refreshes every 15 minutes while this tab is visible.</p>
             </div>
           </div>
-          <label>
-            Refresh interval{' '}
-            <select
-              value={draft.refreshSeconds}
-              onChange={(event) => update('refreshSeconds', Number(event.target.value))}
-            >
-              <option value="15">15 seconds</option>
-              <option value="30">30 seconds</option>
-              <option value="60">1 minute</option>
-            </select>
-          </label>
           <label className="toggle-row">
-            Realtime transfer updates{' '}
+            Automatic refresh{' '}
             <input
               type="checkbox"
               checked={draft.realtime}

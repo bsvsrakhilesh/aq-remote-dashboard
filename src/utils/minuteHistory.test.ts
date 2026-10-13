@@ -34,6 +34,7 @@ describe('twice-daily CSV history', () => {
         valid_counts: [2, 1, 0, 2, 1, 0],
       },
     ])
+    expect(parser.afterUntilRows).toBe(1)
   })
   it('supports indoor headers and does not double-count repeated RTC seconds', () => {
     const parser = new CsvMinuteAggregator(start, start + 60000, true)

@@ -85,7 +85,7 @@ const char* DEVICE_HOSTNAME = "aq_outdoor04";
 const char* NETWORK_HOSTNAME = "aq-outdoor04";
 
 // Firmware identifier shown in the remote dashboard heartbeat.
-const char* FIRMWARE_VERSION = "pm-sht-iitd-cloud-1.2.3";
+const char* FIRMWARE_VERSION = "pm-sht-iitd-cloud-1.2.5";
 
 // -----------------------------------------------------------------------------
 // IIT Delhi WPA2-Enterprise / PEAP configuration
@@ -357,14 +357,10 @@ unsigned long lastWifiScanAttemptMs = 0;
 /***************************************************************
  * Remote cloud dashboard state
  ***************************************************************/
-const unsigned long CLOUD_HEARTBEAT_INTERVAL_MS = 900000UL;   // 15 minutes
-const unsigned long CLOUD_TELEMETRY_INTERVAL_MS = 900000UL;   // 15 minutes
-const unsigned long CLOUD_COMMAND_POLL_INTERVAL_MS = 900000UL; // 15 minutes; budget Edge Function invocations
-const uint32_t CLOUD_HTTP_TIMEOUT_MS = 3000UL;
+const unsigned long CLOUD_CHECKIN_INTERVAL_MS = 900000UL; // 15 minutes
+const uint32_t CLOUD_HTTP_TIMEOUT_MS = 10000UL;
 
-unsigned long lastCloudHeartbeatMs = 0;
-unsigned long lastCloudTelemetryMs = 0;
-unsigned long lastCloudCommandPollMs = 0;
+unsigned long lastCloudCheckInMs = 0;
 unsigned long lastCloudSuccessMs = 0;
 int lastCloudHttpCode = 0;
 String cloudHealth = "NOT CONFIGURED";
@@ -392,6 +388,10 @@ String remoteUploadPath;
 uint16_t remoteUploadPort = 443;
 uint64_t remoteUploadTotalBytes = 0;
 uint64_t remoteUploadSentBytes = 0;
+bool remoteUploadIncremental = false;
+uint32_t remoteUploadSourceStartByte = 0;
+uint32_t remoteUploadSourceEndByte = 0;
+uint32_t remoteUploadHeaderBytes = 0;
 unsigned long remoteUploadLastActivityMs = 0;
 int remoteUploadHttpCode = 0;
 uint8_t remoteUploadLastProgressBucket = 255;
@@ -711,27 +711,6 @@ int cloudPost(const char* functionName, const String& body, String* response = n
   return code;
 }
 
-int cloudGet(const char* functionName, String* response = nullptr) {
-  { LoggerStateLock guard; if (!connected || !cloudConfigured()) return -1; }
-
-  NetworkClientSecure client;
-  client.useBuiltinCACertBundle();
-  client.setHandshakeTimeout(8);
-  client.setTimeout(CLOUD_HTTP_TIMEOUT_MS);
-
-  HTTPClient http;
-  http.setConnectTimeout(CLOUD_HTTP_TIMEOUT_MS);
-  http.setTimeout(CLOUD_HTTP_TIMEOUT_MS);
-  if (!http.begin(client, cloudUrl(functionName))) return -1;
-  http.addHeader("X-Device-ID", CLOUD_DEVICE_ID);
-  http.addHeader("X-Device-Key", CLOUD_DEVICE_SECRET);
-  int code = http.GET();
-  if (response && code > 0) *response = http.getString();
-  http.end();
-  noteCloudResult(functionName, code);
-  return code;
-}
-
 String jsonStringValue(const String& json, const char* key) {
   String needle = String("\"") + key + "\"";
   int p = json.indexOf(needle);
@@ -761,6 +740,27 @@ String jsonStringValue(const String& json, const char* key) {
     }
   }
   return out;
+}
+
+bool jsonUInt32Value(const String& json, const char* key, uint32_t& value) {
+  String needle = String("\"") + key + "\"";
+  int p = json.indexOf(needle);
+  if (p < 0) return false;
+  p = json.indexOf(':', p + needle.length());
+  if (p < 0) return false;
+  ++p;
+  while (p < (int)json.length() && isspace((unsigned char)json.charAt(p))) ++p;
+  if (p >= (int)json.length() || !isdigit((unsigned char)json.charAt(p))) return false;
+  uint64_t parsed = 0;
+  while (p < (int)json.length() && isdigit((unsigned char)json.charAt(p))) {
+    parsed = parsed * 10ULL + (uint32_t)(json.charAt(p) - '0');
+    if (parsed > UINT32_MAX) return false;
+    ++p;
+  }
+  while (p < (int)json.length() && isspace((unsigned char)json.charAt(p))) ++p;
+  if (p >= (int)json.length() || (json.charAt(p) != ',' && json.charAt(p) != '}')) return false;
+  value = (uint32_t)parsed;
+  return true;
 }
 
 bool safeCsvFilename(const String& name) {
@@ -2466,56 +2466,52 @@ void serviceSdLogging() {
 /***************************************************************
  * Remote cloud dashboard services
  ***************************************************************/
-void sendCloudHeartbeat() {
+void handleCloudCommandResponse(const String& response);
+
+void sendCloudCheckIn() {
   LoggerStateLock guard;
   DateTime trustedNow;
-  if (!getTrustedLogTime(trustedNow)) return;
+  bool trustedTime = getTrustedLogTime(trustedNow);
+  unsigned long ms = millis();
+  bool spsOk = sps30DataUsable(ms);
+  bool secondaryOk = sht3xDataUsable(ms);
+
   String body = "{";
   body += "\"device_id\":\"" + jsonEscape(CLOUD_DEVICE_ID) + "\"";
-  body += ",\"timestamp\":\"" + jsonEscape(iso8601FromRtc()) + "\"";
-  body += ",\"rssi\":" + String(connected ? WiFi.RSSI() : -127);
+  body += ",\"timestamp\":";
+  if (trustedTime) body += "\"" + jsonEscape(iso8601FromRtc()) + "\"";
+  else body += "null";
+  body += ",\"rssi\":" + String(connected ? WiFi.RSSI() : -120);
   body += ",\"sd_ok\":" + String(sdReady && sdLastWriteOk ? "true" : "false");
-  body += ",\"sps30_ok\":" + String(sps30DataUsable(millis()) ? "true" : "false");
-  body += ",\"sht3x_ok\":" + String(sht3xDataUsable(millis()) ? "true" : "false");
-  body += ",\"rtc_ok\":" + String(rtcOk ? "true" : "false");
+  body += ",\"sps30_ok\":" + String(spsOk ? "true" : "false");
+  body += ",\"sht3x_ok\":" + String(secondaryOk ? "true" : "false");
+  body += ",\"rtc_ok\":" + String(rtcOk && trustedTime ? "true" : "false");
   body += ",\"current_file\":\"" + jsonEscape(getLogDownloadName()) + "\"";
   body += ",\"current_file_size\":" + String((uint32_t)currentLogFileSizeBytes);
   body += ",\"firmware_version\":\"" + jsonEscape(FIRMWARE_VERSION) + "\"";
+  if (trustedTime) {
+    body += ",\"telemetry\":{";
+    body += "\"pm1\":" + jsonFloatOrNull(measurement.mc_1p0,
+      spsOk && measurement.mc_1p0 >= 0 && measurement.mc_1p0 <= 10000);
+    body += ",\"pm25\":" + jsonFloatOrNull(measurement.mc_2p5, spsOk);
+    body += ",\"pm10\":" + jsonFloatOrNull(measurement.mc_10p0, spsOk);
+    body += ",\"temperature\":" + jsonFloatOrNull(temperature, secondaryOk);
+    body += ",\"rh\":" + jsonFloatOrNull(humidity, secondaryOk);
+    body += "}";
+  } else {
+    // An invalid RTC must not prevent a command check-in.
+    body += ",\"telemetry\":null";
+  }
   body += "}";
 
   guard.unlock();
-  int code = cloudPost("device-heartbeat", body);
+  String response;
+  int code = cloudPost("device-check-in", body, &response);
   if (code >= 200 && code < 300) {
-    Serial.println("Cloud heartbeat OK.");
+    Serial.println("15-minute cloud check-in OK.");
+    handleCloudCommandResponse(response);
   }
 }
-
-void sendCloudTelemetry() {
-  LoggerStateLock guard;
-  DateTime trustedNow;
-  if (!getTrustedLogTime(trustedNow)) return;
-  unsigned long ms = millis();
-  bool spsOk = sps30DataUsable(ms);
-  bool shtOk = sht3xDataUsable(ms);
-
-  String body = "{";
-  body += "\"device_id\":\"" + jsonEscape(CLOUD_DEVICE_ID) + "\"";
-  body += ",\"timestamp\":\"" + jsonEscape(iso8601FromRtc()) + "\"";
-  body += ",\"pm1\":" + jsonFloatOrNull(measurement.mc_1p0,
-    spsOk && measurement.mc_1p0 >= 0 && measurement.mc_1p0 <= 10000);
-  body += ",\"pm25\":" + jsonFloatOrNull(measurement.mc_2p5, spsOk);
-  body += ",\"pm10\":" + jsonFloatOrNull(measurement.mc_10p0, spsOk);
-  body += ",\"temperature\":" + jsonFloatOrNull(temperature, shtOk);
-  body += ",\"rh\":" + jsonFloatOrNull(humidity, shtOk);
-  body += "}";
-
-  guard.unlock();
-  int code = cloudPost("device-telemetry", body);
-  if (code >= 200 && code < 300) {
-    Serial.println("5-minute cloud telemetry OK.");
-  }
-}
-
 void cloudAckCommand(const String& commandId, const String& status,
                      const String& errorMessage = "") {
   if (commandId.length() == 0) return;
@@ -2613,6 +2609,125 @@ bool sendCloudFileCatalog(const String& commandId) {
   return code >= 200 && code < 300;
 }
 
+size_t readSdFileAt(File& file, uint32_t position, uint8_t* buffer, size_t length) {
+  LoggerStateLock guard;
+  if (!file.seek(position)) return 0;
+  return file.read(buffer, length);
+}
+
+void closeSdFile(File& file) {
+  LoggerStateLock guard;
+  file.close();
+}
+
+bool parseUtcCutoff(const String& text, uint32_t& cutoff) {
+  if (text.length() != 20 || text.charAt(19) != 'Z') return false;
+  for (int i = 0; i < 19; ++i) {
+    char expected = i == 4 || i == 7 ? '-' : i == 10 ? 'T' : i == 13 || i == 16 ? ':' : '\0';
+    if (expected ? text.charAt(i) != expected : !isdigit((unsigned char)text.charAt(i))) return false;
+  }
+  unsigned year, month, day, hour, minute, second;
+  if (sscanf(text.c_str(), "%u-%u-%uT%u:%u:%uZ", &year, &month, &day,
+             &hour, &minute, &second) != 6 ||
+      year < 2024 || year > 2099 || month < 1 || month > 12 ||
+      day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return false;
+  DateTime parsed(year, month, day, hour, minute, second);
+  if (!parsed.isValid()) return false;
+  cutoff = parsed.unixtime();
+  return true;
+}
+
+bool csvRowUtcBefore(const char* prefix, size_t length, uint32_t cutoff, bool& before) {
+  if (length < 20) return false;
+  for (int i = 0; i < 20; ++i) {
+    char expected = i == 2 || i == 5 ? '-' : i == 10 || i == 19 ? ',' :
+                    i == 13 || i == 16 ? ':' : '\0';
+    if (expected ? prefix[i] != expected : !isdigit((unsigned char)prefix[i])) return false;
+  }
+  unsigned day, month, year, hour, minute, second;
+  if (sscanf(prefix, "%u-%u-%u,%u:%u:%u,", &day, &month, &year,
+             &hour, &minute, &second) != 6 ||
+      year < 2024 || year > 2099 || month < 1 || month > 12 ||
+      day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return false;
+  DateTime localTime(year, month, day, hour, minute, second);
+  if (!localTime.isValid()) return false;
+  const int64_t rowUtc = (int64_t)localTime.unixtime() - (int64_t)NTP_UTC_OFFSET_SECONDS;
+  before = rowUtc < (int64_t)cutoff;
+  return true;
+}
+
+bool planIncrementalCsv(const String& filename, uint32_t startByte,
+                        const String& hourEnd, uint32_t& headerBytes,
+                        uint32_t& sourceEnd) {
+  uint32_t cutoff;
+  if (!parseUtcCutoff(hourEnd, cutoff)) return false;
+  File file;
+  uint32_t snapshotBytes;
+  {
+    LoggerStateLock guard;
+    file = SD.open(("/" + filename).c_str(), FILE_READ);
+    if (!file) return false;
+    snapshotBytes = (uint32_t)file.size();
+  }
+  if (snapshotBytes == 0 || snapshotBytes > 104857600UL || startByte > snapshotBytes) {
+    closeSdFile(file);
+    return false;
+  }
+
+  uint8_t header[512];
+  size_t headerRead = readSdFileAt(file, 0, header,
+      snapshotBytes < sizeof(header) ? (size_t)snapshotBytes : sizeof(header));
+  headerBytes = 0;
+  for (size_t i = 0; i < headerRead; ++i) {
+    if (header[i] == '\n') { headerBytes = (uint32_t)i + 1U; break; }
+  }
+  if (headerBytes == 0 || (startByte != 0 && startByte < headerBytes)) {
+    closeSdFile(file);
+    return false;
+  }
+  if (startByte > headerBytes) {
+    uint8_t previous;
+    if (readSdFileAt(file, startByte - 1U, &previous, 1) != 1 || previous != '\n') {
+      closeSdFile(file);
+      return false;
+    }
+  }
+
+  uint32_t cursor = startByte == 0 ? headerBytes : startByte;
+  sourceEnd = cursor;
+  char prefix[32];
+  size_t prefixLength = 0;
+  uint16_t rowLength = 0;
+  uint8_t chunk[REMOTE_UPLOAD_CHUNK_BYTES];
+  while (cursor < snapshotBytes) {
+    size_t wanted = snapshotBytes - cursor < sizeof(chunk)
+        ? (size_t)(snapshotBytes - cursor) : sizeof(chunk);
+    size_t got = readSdFileAt(file, cursor, chunk, wanted);
+    if (got != wanted) { closeSdFile(file); return false; }
+    for (size_t i = 0; i < got; ++i) {
+      char value = (char)chunk[i];
+      ++cursor;
+      ++rowLength;
+      if (prefixLength < sizeof(prefix) - 1) prefix[prefixLength++] = value;
+      if (rowLength > 512) { closeSdFile(file); return false; }
+      if (value == '\n') {
+        prefix[prefixLength] = '\0';
+        bool before = false;
+        if (!csvRowUtcBefore(prefix, prefixLength, cutoff, before)) {
+          closeSdFile(file);
+          return false;
+        }
+        if (!before) { closeSdFile(file); return true; }
+        sourceEnd = cursor;
+        prefixLength = 0;
+        rowLength = 0;
+      }
+    }
+  }
+  closeSdFile(file);
+  return true; // A trailing row without LF remains for the next transfer.
+}
+
 void finishRemoteUpload(bool success, const String& errorMessage = "") {
   { LoggerStateLock guard; if (remoteUploadFile) remoteUploadFile.close(); }
   remoteUploadClient.stop();
@@ -2656,13 +2771,19 @@ void finishRemoteUpload(bool success, const String& errorMessage = "") {
   remoteUploadFilename = "";
   remoteUploadTotalBytes = 0;
   remoteUploadSentBytes = 0;
+  remoteUploadIncremental = false;
+  remoteUploadSourceStartByte = 0;
+  remoteUploadSourceEndByte = 0;
+  remoteUploadHeaderBytes = 0;
   remoteUploadHttpCode = 0;
   remoteUploadLastProgressBucket = 255;
 }
 
 bool startRemoteFileUpload(const String& commandId, const String& requestId,
                            const String& filename, const String& uploadUrl,
-                           String method, uint64_t snapshotBytes) {
+                           String method, uint64_t snapshotBytes,
+                           bool incremental, uint32_t sourceStartByte,
+                           uint32_t sourceEndByte, uint32_t headerBytes) {
   if (remoteUploadState != REMOTE_UPLOAD_IDLE || !safeCsvFilename(filename)) return false;
 
   String path = "/" + filename;
@@ -2671,7 +2792,8 @@ bool startRemoteFileUpload(const String& commandId, const String& requestId,
     LoggerStateLock guard;
     f = SD.open(path.c_str(), FILE_READ);
     if (!f) return false;
-    if ((uint64_t)f.size() < snapshotBytes) { f.close(); return false; }
+    uint64_t requiredBytes = incremental ? sourceEndByte : snapshotBytes;
+    if ((uint64_t)f.size() < requiredBytes) { f.close(); return false; }
   }
 
   String host, urlPath;
@@ -2706,6 +2828,10 @@ bool startRemoteFileUpload(const String& commandId, const String& requestId,
   remoteUploadPort = port;
   remoteUploadTotalBytes = snapshotBytes;
   remoteUploadSentBytes = 0;
+  remoteUploadIncremental = incremental;
+  remoteUploadSourceStartByte = sourceStartByte;
+  remoteUploadSourceEndByte = sourceEndByte;
+  remoteUploadHeaderBytes = headerBytes;
   remoteUploadLastActivityMs = millis();
   remoteUploadHttpCode = 0;
   remoteUploadLastProgressBucket = 255;
@@ -2734,16 +2860,25 @@ bool startRemoteFileUpload(const String& commandId, const String& requestId,
 }
 
 bool requestRemoteUploadSession(const String& commandId, const String& requestId,
-                                const String& filename) {
-  LoggerStateLock guard;
-  if (!safeCsvFilename(filename) || !sdReady) return false;
-  String path = "/" + filename;
-  File f = SD.open(path.c_str(), FILE_READ);
-  if (!f) return false;
-  uint64_t fileSize = (uint64_t)f.size();
-  f.close();
-  guard.unlock();
-  if (fileSize == 0 || fileSize > 104857600ULL) return false;
+                                const String& filename, bool incremental,
+                                uint32_t sourceStartByte, const String& hourEnd) {
+  { LoggerStateLock guard; if (!safeCsvFilename(filename) || !sdReady) return false; }
+  uint32_t headerBytes = 0;
+  uint32_t sourceEndByte = 0;
+  uint64_t uploadBytes = 0;
+  if (incremental) {
+    if (!planIncrementalCsv(filename, sourceStartByte, hourEnd, headerBytes,
+                            sourceEndByte)) return false;
+    uint32_t dataStart = sourceStartByte == 0 ? headerBytes : sourceStartByte;
+    uploadBytes = (uint64_t)headerBytes + (uint64_t)sourceEndByte - dataStart;
+  } else {
+    LoggerStateLock guard;
+    File file = SD.open(("/" + filename).c_str(), FILE_READ);
+    if (!file) return false;
+    uploadBytes = (uint64_t)file.size();
+    file.close();
+  }
+  if (uploadBytes == 0 || uploadBytes > 104857600ULL) return false;
 
   String body = "{";
   body += "\"device_id\":\"" + jsonEscape(CLOUD_DEVICE_ID) + "\"";
@@ -2752,7 +2887,12 @@ bool requestRemoteUploadSession(const String& commandId, const String& requestId
     body += ",\"request_id\":\"" + jsonEscape(requestId) + "\"";
   }
   body += ",\"filename\":\"" + jsonEscape(filename) + "\"";
-  body += ",\"total_bytes\":" + String((uint32_t)fileSize);
+  body += ",\"total_bytes\":" + String((uint32_t)uploadBytes);
+  if (incremental) {
+    body += ",\"source_start_byte\":" + String(sourceStartByte);
+    body += ",\"source_end_byte\":" + String(sourceEndByte);
+    body += ",\"source_header_bytes\":" + String(headerBytes);
+  }
   body += "}";
 
   String response;
@@ -2771,7 +2911,9 @@ bool requestRemoteUploadSession(const String& commandId, const String& requestId
     return false;
   }
 
-  return startRemoteFileUpload(commandId, returnedRequestId, filename, uploadUrl, method, fileSize);
+  return startRemoteFileUpload(commandId, returnedRequestId, filename, uploadUrl,
+                               method, uploadBytes, incremental, sourceStartByte,
+                               sourceEndByte, headerBytes);
 }
 
 void serviceRemoteFileUpload() {
@@ -2793,7 +2935,17 @@ void serviceRemoteFileUpload() {
     uint64_t remaining = remoteUploadTotalBytes - remoteUploadSentBytes;
     size_t requested = remaining < sizeof(buffer) ? (size_t)remaining : sizeof(buffer);
     size_t got = 0;
-    { LoggerStateLock guard; if (requested) got = remoteUploadFile.read(buffer, requested); }
+    uint32_t sourcePosition = (uint32_t)remoteUploadSentBytes;
+    if (remoteUploadIncremental && remoteUploadSourceStartByte > 0) {
+      if (remoteUploadSentBytes < remoteUploadHeaderBytes) {
+        size_t headerRemaining = remoteUploadHeaderBytes - (size_t)remoteUploadSentBytes;
+        if (requested > headerRemaining) requested = headerRemaining;
+      } else {
+        sourcePosition = remoteUploadSourceStartByte +
+                         (uint32_t)(remoteUploadSentBytes - remoteUploadHeaderBytes);
+      }
+    }
+    if (requested) got = readSdFileAt(remoteUploadFile, sourcePosition, buffer, requested);
     if (requested && got == 0) { finishRemoteUpload(false, "SD read ended before snapshot size"); return; }
     if (got > 0) {
       size_t offset = 0;
@@ -2814,13 +2966,15 @@ void serviceRemoteFileUpload() {
         if (bucket != remoteUploadLastProgressBucket) {
           remoteUploadLastProgressBucket = bucket;
           Serial.print("Remote CSV upload: "); Serial.print(pct); Serial.println("%");
-          String progress = "{\"request_id\":\"" + jsonEscape(remoteUploadRequestId) +
-            "\",\"bytes_uploaded\":" + String((uint32_t)remoteUploadSentBytes) +
-            ",\"total_bytes\":" + String((uint32_t)remoteUploadTotalBytes) + "}";
-          int progressCode = cloudPost("device-download-progress", progress);
-          if (progressCode == 404 || progressCode == 409) {
-            finishRemoteUpload(false, "Download cancelled or expired");
-            return;
+          if (!remoteUploadIncremental) {
+            String progress = "{\"request_id\":\"" + jsonEscape(remoteUploadRequestId) +
+              "\",\"bytes_uploaded\":" + String((uint32_t)remoteUploadSentBytes) +
+              ",\"total_bytes\":" + String((uint32_t)remoteUploadTotalBytes) + "}";
+            int progressCode = cloudPost("device-download-progress", progress);
+            if (progressCode == 404 || progressCode == 409) {
+              finishRemoteUpload(false, "Download cancelled or expired");
+              return;
+            }
           }
         }
       }
@@ -2853,16 +3007,8 @@ void serviceRemoteFileUpload() {
   }
 }
 
-void pollCloudCommands() {
-  if (remoteUploadState != REMOTE_UPLOAD_IDLE) return;
-  String response;
-  int code = cloudGet("device-next-command", &response);
-  if (code == 204 ||
-      (code >= 200 && code < 300 && response.indexOf("\"command\":null") >= 0)) {
-    return;
-  }
-  if (code < 200 || code >= 300) return;
-
+void handleCloudCommandResponse(const String& response) {
+  if (response.indexOf("\"command\":null") >= 0) return;
   String commandId = jsonStringValue(response, "command_id");
   String command = jsonStringValue(response, "command");
   if (command.length() == 0) command = jsonStringValue(response, "command_type");
@@ -2885,8 +3031,16 @@ void pollCloudCommands() {
       cloudAckCommand(commandId, "failed", "Invalid CSV filename");
       return;
     }
+    bool incremental = response.indexOf("\"incremental_csv\":true") >= 0;
+    uint32_t startByte = 0;
+    String hourEnd = jsonStringValue(response, "hour_end");
+    if (incremental && (!jsonUInt32Value(response, "start_byte", startByte) || hourEnd.length() == 0)) {
+      cloudAckCommand(commandId, "failed", "Invalid incremental CSV command");
+      return;
+    }
     cloudAckCommand(commandId, "running");
-    if (!requestRemoteUploadSession(commandId, requestId, filename)) {
+    if (!requestRemoteUploadSession(commandId, requestId, filename,
+                                    incremental, startByte, hourEnd)) {
       String failure = "{\"request_id\":\"" + jsonEscape(requestId) +
         "\",\"error\":\"Could not create or start upload session\"}";
       cloudPost("device-download-failed", failure);
@@ -2920,25 +3074,11 @@ void serviceCloudDashboard() {
   // streaming, so progress updates cannot compete with command polling.
   if (remoteUploadState != REMOTE_UPLOAD_IDLE) return;
 
-  // At most one cloud transaction per worker pass.
-  if (lastCloudHeartbeatMs == 0 ||
-      ms - lastCloudHeartbeatMs >= CLOUD_HEARTBEAT_INTERVAL_MS) {
-    lastCloudHeartbeatMs = ms;
-    sendCloudHeartbeat();
-    return;
-  }
-
-  if (lastCloudTelemetryMs == 0 ||
-      ms - lastCloudTelemetryMs >= CLOUD_TELEMETRY_INTERVAL_MS) {
-    lastCloudTelemetryMs = ms;
-    sendCloudTelemetry();
-    return;
-  }
-
-  if (lastCloudCommandPollMs == 0 ||
-      ms - lastCloudCommandPollMs >= CLOUD_COMMAND_POLL_INTERVAL_MS) {
-    lastCloudCommandPollMs = ms;
-    pollCloudCommands();
+  // One scheduled request carries health, telemetry, and the next command.
+  if (lastCloudCheckInMs == 0 ||
+      ms - lastCloudCheckInMs >= CLOUD_CHECKIN_INTERVAL_MS) {
+    lastCloudCheckInMs = ms;
+    sendCloudCheckIn();
   }
 }
 

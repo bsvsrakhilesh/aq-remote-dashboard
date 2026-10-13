@@ -83,19 +83,17 @@ The dashboard shows a CO₂ value, a ppm history chart with all four time ranges
 
 ### Background cloud task
 
-The reference sketches send a heartbeat and telemetry snapshot and poll `device-next-command` every fifteen minutes while connected. File-list and download requests can wait up to fifteen minutes before the logger receives them. At this cadence, one continuously connected logger makes about 288 Edge Function invocations per day: 96 heartbeats, 96 telemetry uploads, and 96 command polls, plus occasional transfer requests. Seven such loggers make about 62,496 regular invocations in a 31-day month; fifty make about 446,400. The 500,000-invocation Free allowance would leave only 53,600 invocations for transfers, retries, other functions, and other projects at fifty devices. Review the organization's usage page before adding loggers.
+Firmware 1.2.5 sends health and telemetry and retrieves one queued command in a single `device-check-in` POST every fifteen minutes while connected. File-list and download requests can wait up to fifteen minutes before the logger receives them. One continuously connected logger therefore makes 96 regular Edge Function invocations per day. Seven make 20,832 in a 31-day month; fifty make 148,800, plus transfer requests, retries, and other functions. Review the organization's usage page before adding loggers.
 
 ```cpp
 void cloudTask() {
-  if (heartbeatDue()) sendHeartbeat();
-  if (fiveMinuteSummaryDue()) sendFiveMinuteTelemetry();
-  if (commandPollDue()) pollCommands();
+  if (checkInDue()) sendHealthTelemetryAndGetCommand();
 }
 
-void pollCommands() {
-  // GET next command with a short timeout.
+void handleCommand() {
   // Acknowledge before work. list_files -> scan metadata only.
-  // download_file -> call uploadRequestedFile(request_id, filename).
+  // Manual download_file -> stream the requested full SD file.
+  // Automatic incremental_csv -> stream header plus complete new rows.
 }
 
 void uploadRequestedFile(String requestId, String filename) {
@@ -110,6 +108,8 @@ void uploadRequestedFile(String requestId, String filename) {
 The human-facing dashboard uses two additional authenticated functions: `POST /request-file-list` queues a deduplicated catalog command, and `POST /cancel-file-download` expires a user-owned transfer and removes any partial temporary object. These endpoints use the browser's Supabase Auth token, never device credentials.
 
 Progress body: `{"request_id":"<uuid>","bytes_uploaded":7340032,"total_bytes":18634259}`. Report after meaningful increments, not for every packet.
+
+Automatic CSV commands include `incremental_csv: true`, a `start_byte` offset, and an exclusive UTC `hour_end`. The logger uploads the original header followed by complete rows from `start_byte` through the final row before `hour_end`. Its upload-session request includes `source_start_byte`, `source_end_byte`, `source_header_bytes`, and the actual uploaded `total_bytes`. The worker advances the offset only after the import succeeds. Keep manual downloads as full-file transfers and do not treat an old firmware version as incremental-capable.
 
 If a transfer cannot resume, POST `{"request_id":"<uuid>","error":"SD read failed"}` to `/device-download-failed`. Keep error text short and never include credentials.
 

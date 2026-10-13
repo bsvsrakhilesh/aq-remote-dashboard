@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js'
 import { devices as mockDevices, filesFor, telemetryFor } from '../mocks/data'
 import { demoMode, readOnlyMode, supabase } from '../services/supabase'
-import { collectTelemetryPages } from '../services/telemetry'
+import { collectTelemetryPages, mergeTelemetryRows } from '../services/telemetry'
 import type { Device, DeviceFile, RangeKey, Reading } from '../types'
 import { rangeHours } from '../utils'
 import { usePreferences } from './usePreferences'
@@ -49,6 +49,15 @@ interface TelemetryRow {
   rh: number | null
   co2_ppm: number | null
 }
+interface FleetStatusRow extends DeviceRow {
+  latest_timestamp: string | null
+  latest_pm1: number | null
+  latest_pm25: number | null
+  latest_pm10: number | null
+  latest_temperature_c: number | null
+  latest_rh: number | null
+  latest_co2_ppm: number | null
+}
 
 const fallbackReading = (timestamp: string): Reading => ({
   timestamp,
@@ -94,11 +103,26 @@ const mapDevice = (row: DeviceRow, latest?: TelemetryRow): Device => ({
 function useReloadVersion(autoRefresh = true) {
   const [version, setVersion] = useState(0)
   const { preferences } = usePreferences()
-  const reload = useCallback(() => setVersion((value) => value + 1), [])
+  const lastReloadAt = useRef(Date.now())
+  const reload = useCallback(() => {
+    lastReloadAt.current = Date.now()
+    setVersion((value) => value + 1)
+  }, [])
   useEffect(() => {
     if (!autoRefresh || !preferences.realtime) return
-    const timer = window.setInterval(reload, preferences.refreshSeconds * 1000)
-    return () => window.clearInterval(timer)
+    const refreshWhenDue = () => {
+      if (
+        document.visibilityState === 'visible' &&
+        Date.now() - lastReloadAt.current >= preferences.refreshSeconds * 1000
+      )
+        reload()
+    }
+    const timer = window.setInterval(refreshWhenDue, preferences.refreshSeconds * 1000)
+    document.addEventListener('visibilitychange', refreshWhenDue)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refreshWhenDue)
+    }
   }, [autoRefresh, preferences.realtime, preferences.refreshSeconds, reload])
   return { version, reload }
 }
@@ -127,10 +151,8 @@ export function useDevices(): AsyncState<Device[]> {
       setLoading(true)
       setError(null)
       const { data: rows, error: deviceError } = await client
-        .from('devices')
-        .select(
-          'id,device_code,display_name,description,firmware_version,last_seen,wifi_rssi,sd_ok,sps30_ok,sht3x_ok,rtc_ok,current_filename,current_file_size,co2_enabled,scd30_ok,installed_sensors',
-        )
+        .from('fleet_current_status')
+        .select('*')
         .order('device_code')
       if (deviceError) {
         if (alive) {
@@ -139,21 +161,27 @@ export function useDevices(): AsyncState<Device[]> {
         }
         return
       }
-      const typed = (rows ?? []) as DeviceRow[]
-      const latest = await Promise.all(
-        typed.map(async (device) => {
-          const { data: reading } = await client
-            .from('telemetry_5min')
-            .select('device_id,timestamp,pm1,pm25,pm10,temperature_c,rh,co2_ppm')
-            .eq('device_id', device.id)
-            .order('timestamp', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-          return reading as TelemetryRow | null
-        }),
-      )
+      const typed = (rows ?? []) as FleetStatusRow[]
       if (alive) {
-        setData(typed.map((device, index) => mapDevice(device, latest[index] ?? undefined)))
+        setData(
+          typed.map((device) =>
+            mapDevice(
+              device,
+              device.latest_timestamp
+                ? {
+                    device_id: device.id,
+                    timestamp: device.latest_timestamp,
+                    pm1: device.latest_pm1,
+                    pm25: device.latest_pm25,
+                    pm10: device.latest_pm10,
+                    temperature_c: device.latest_temperature_c,
+                    rh: device.latest_rh,
+                    co2_ppm: device.latest_co2_ppm,
+                  }
+                : undefined,
+            ),
+          ),
+        )
         setLoading(false)
       }
     })()
@@ -196,6 +224,7 @@ export function useTelemetry(device: Device | null, range: RangeKey): AsyncState
   const [data, setData] = useState<Reading[]>(initial)
   const [loading, setLoading] = useState(!demoMode)
   const [error, setError] = useState<string | null>(null)
+  const cache = useRef<{ key: string; rows: TelemetryRow[] } | null>(null)
   const { version, reload } = useReloadVersion()
   useEffect(() => {
     if (demoMode && device) {
@@ -207,7 +236,13 @@ export function useTelemetry(device: Device | null, range: RangeKey): AsyncState
     let alive = true
     setLoading(true)
     setError(null)
-    const since = new Date(Date.now() - rangeHours[range] * 3600000).toISOString()
+    const windowStartMs = Date.now() - rangeHours[range] * 3600000
+    const cached = cache.current?.key === `${device.id}:${range}` ? cache.current.rows : []
+    // Re-read the last hour to pick up late or corrected samples.
+    const queryStartMs = cached.length
+      ? Math.max(windowStartMs, Date.parse(cached[cached.length - 1].timestamp) - 3600000)
+      : windowStartMs
+    const since = new Date(queryStartMs).toISOString()
     const until = new Date().toISOString()
     const client = supabase
     void collectTelemetryPages<TelemetryRow>(async (from, to) => {
@@ -225,8 +260,10 @@ export function useTelemetry(device: Device | null, range: RangeKey): AsyncState
     })
       .then((rows) => {
         if (!alive) return
+        const merged = mergeTelemetryRows(cached, rows, windowStartMs)
+        cache.current = { key: `${device.id}:${range}`, rows: merged }
         setData(
-          rows.map((reading) => ({
+          merged.map((reading) => ({
             timestamp: reading.timestamp,
             pm1: reading.pm1,
             pm25: reading.pm25,

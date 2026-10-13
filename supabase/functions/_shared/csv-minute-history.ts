@@ -44,6 +44,7 @@ export class CsvMinuteAggregator {
   skippedRows = 0
   duplicateRows = 0
   parsedRows = 0
+  afterUntilRows = 0
 
   constructor(
     private from: number,
@@ -93,7 +94,11 @@ export class CsvMinuteAggregator {
       this.skippedRows++
       return
     }
-    if (ts < this.from || ts >= this.until) return
+    if (ts >= this.until) {
+      this.afterUntilRows++
+      return
+    }
+    if (ts < this.from) return
     const minute = Math.floor(ts / 60000) * 60000
     const second = Math.floor(ts / 1000) % 60
     let bucket = this.buckets.get(minute)

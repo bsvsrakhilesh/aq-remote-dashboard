@@ -426,6 +426,9 @@ verify_jwt = false
 [functions.device-telemetry]
 verify_jwt = false
 
+[functions.device-check-in]
+verify_jwt = false
+
 [functions.device-next-command]
 verify_jwt = false
 

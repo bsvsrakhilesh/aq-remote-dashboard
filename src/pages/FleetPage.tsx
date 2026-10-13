@@ -55,8 +55,14 @@ export function FleetPage() {
         <button className="last-updated refresh-plain" onClick={reload}>
           <span className="live-pulse" />
           <div>
-            <small>{loading ? 'Refreshing' : 'Auto-refresh active'}</small>
-            <strong>{loading ? 'Please wait...' : `Every ${preferences.refreshSeconds}s`}</strong>
+            <small>{loading ? 'Refreshing' : preferences.realtime ? 'Auto-refresh active' : 'Auto-refresh off'}</small>
+            <strong>
+              {loading
+                ? 'Please wait...'
+                : preferences.realtime
+                  ? `Every ${preferences.refreshSeconds / 60} min`
+                  : 'Click to refresh'}
+            </strong>
           </div>
         </button>
       </section>

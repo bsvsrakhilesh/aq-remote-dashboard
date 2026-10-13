@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { demoMode, supabase } from '../services/supabase'
+
+const WORKSPACE_REFRESH_MS = 15 * 60 * 1000
 
 export function useWorkspaceTable<T>(table: string, order: string, enabled = true) {
   const [data, setData] = useState<T[]>([])
   const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
+  const lastLoadAt = useRef(0)
   const reload = useCallback(() => setVersion((v) => v + 1), [])
   useEffect(() => {
     if (!enabled) return
     let alive = true
     const load = async () => {
+      lastLoadAt.current = Date.now()
       if (demoMode) {
         const rows: unknown = JSON.parse(localStorage.getItem(`aq-demo-${table}`) ?? '[]')
         if (alive) {
@@ -35,11 +39,16 @@ export function useWorkspaceTable<T>(table: string, order: string, enabled = tru
         }
       })
     check()
-    const timer = window.setInterval(check, 30000)
+    const checkWhenDue = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastLoadAt.current >= WORKSPACE_REFRESH_MS) check()
+    }
+    const timer = window.setInterval(checkWhenDue, WORKSPACE_REFRESH_MS)
+    document.addEventListener('visibilitychange', checkWhenDue)
     window.addEventListener('aq-workspace-updated', check)
     return () => {
       alive = false
       clearInterval(timer)
+      document.removeEventListener('visibilitychange', checkWhenDue)
       window.removeEventListener('aq-workspace-updated', check)
     }
   }, [table, order, enabled, version])

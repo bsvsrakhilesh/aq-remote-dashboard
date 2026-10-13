@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { demoMode, supabase } from '../services/supabase'
 import { collectTelemetryPages } from '../services/telemetry'
 import { closedSyncWindow, istDayStart, type MinuteReading } from '../utils/minuteHistory'
@@ -31,6 +31,8 @@ interface Row {
   valid_counts: number[]
 }
 
+const STATUS_REFRESH_MS = 15 * 60 * 1000
+
 export function useMinuteHistory(deviceId: string | undefined, date: string, co2Enabled: boolean) {
   const [rows, setRows] = useState<MinuteReading[]>([])
   const [sync, setSync] = useState<Sync | null>(null)
@@ -41,6 +43,7 @@ export function useMinuteHistory(deviceId: string | undefined, date: string, co2
   const [statusError, setStatusError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [version, setVersion] = useState(0)
+  const lastStatusLoadAt = useRef(0)
   const reload = useCallback(() => setVersion((v) => v + 1), [])
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export function useMinuteHistory(deviceId: string | undefined, date: string, co2
     setSync(null)
     setJob(null)
     const load = async () => {
+      lastStatusLoadAt.current = Date.now()
       if (demoMode) {
         const latest = new Date(closedSyncWindow() - 60000).toISOString()
         setSync({
@@ -94,14 +98,22 @@ export function useMinuteHistory(deviceId: string | undefined, date: string, co2
     void load().catch(() => {
       if (alive) setStatusError('CSV sync status could not be loaded. Please retry.')
     })
-    const timer = window.setInterval(() => {
+    const check = () => {
       void load().catch(() => {
         if (alive) setStatusError('CSV sync status could not be loaded. Please retry.')
       })
-    }, 30000)
+    }
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && Date.now() - lastStatusLoadAt.current >= STATUS_REFRESH_MS) check()
+    }, STATUS_REFRESH_MS)
+    const checkWhenVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastStatusLoadAt.current >= STATUS_REFRESH_MS) check()
+    }
+    document.addEventListener('visibilitychange', checkWhenVisible)
     return () => {
       alive = false
       window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', checkWhenVisible)
     }
   }, [deviceId, version])
 

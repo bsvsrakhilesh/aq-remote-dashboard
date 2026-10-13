@@ -10,6 +10,9 @@ Deno.serve(async (request) => {
     request_id?: string
     filename?: string
     total_bytes?: number
+    source_start_byte?: number
+    source_end_byte?: number
+    source_header_bytes?: number
   } | null
   if (
     !body?.request_id ||
@@ -21,7 +24,7 @@ Deno.serve(async (request) => {
     return json(request, { ok: false, error: 'invalid_request' }, 400)
   const { data: download } = await auth.db
     .from('download_requests')
-    .select('id,filename,status,total_bytes')
+    .select('id,filename,status,total_bytes,request_kind,source_start_byte')
     .eq('id', body.request_id)
     .eq('device_id', auth.device.id)
     .maybeSingle()
@@ -29,6 +32,26 @@ Deno.serve(async (request) => {
     return json(request, { ok: false, error: 'request_not_found' }, 404)
   if (!['queued', 'device_acknowledged', 'uploading'].includes(download.status))
     return json(request, { ok: false, error: 'invalid_state' }, 409)
+  const automatic = download.request_kind === 'minute_history'
+  if (automatic) {
+    const start = body.source_start_byte
+    const end = body.source_end_byte
+    const header = body.source_header_bytes
+    if (
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(end) ||
+      !Number.isSafeInteger(header) ||
+      start !== download.source_start_byte ||
+      start! < 0 ||
+      end! < start! ||
+      end! > 4294967295 ||
+      header! < 1 ||
+      header! > 4096 ||
+      body.total_bytes !== (start === 0 ? end : header! + end! - start!) ||
+      body.total_bytes! < header!
+    )
+      return json(request, { ok: false, error: 'incremental_csv_required' }, 409)
+  }
   // The active weekly CSV can grow after catalog listing. The authenticated
   // logger declares an immutable byte snapshot for this transfer.
   const safe = body.filename.replace(/[^a-zA-Z0-9_.-]/g, '_')
@@ -42,6 +65,12 @@ Deno.serve(async (request) => {
       storage_path: path,
       started_at: new Date().toISOString(),
       total_bytes: body.total_bytes,
+      ...(automatic
+        ? {
+            source_end_byte: body.source_end_byte,
+            source_header_bytes: body.source_header_bytes,
+          }
+        : {}),
     })
     .eq('id', body.request_id)
     .eq('device_id', auth.device.id)

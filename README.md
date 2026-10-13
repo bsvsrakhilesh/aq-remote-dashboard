@@ -62,4 +62,4 @@ Public read-only mode also requires the server-side `dashboard_settings.public_r
 - Missing chart points: nulls and missed uploads intentionally render as gaps.
 - CSV not available: confirm the logger polled and acknowledged the command, storage bucket is private, and the request has not expired.
 
-The firmware sketches send a heartbeat and telemetry snapshot and poll cloud commands every fifteen minutes to control Edge Function usage. Flash each logger to apply firmware changes; updating the website does not update devices. Full-resolution SD logging and the local ESP32 dashboard continue independently of the cloud.
+Firmware 1.2.5 sends health, telemetry, and the next command in one cloud check-in every fifteen minutes. Automatic one-minute CSV history sync uses byte offsets so only new complete rows are transferred after the first snapshot of a weekly file. Flash each logger before powering it on; updating the website does not update devices. Full-resolution SD logging and the local ESP32 dashboard continue independently of the cloud.

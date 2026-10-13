@@ -11,6 +11,11 @@ interface Job {
   download_request_id: string
   co2_enabled: boolean
   attempts: number
+  start_byte: number
+  source_start_byte: number
+  source_end_byte: number
+  source_header_bytes: number
+  uploaded_bytes: number
 }
 
 Deno.serve(async (request) => {
@@ -37,8 +42,11 @@ Deno.serve(async (request) => {
     const response = await fetch(signed.signedUrl, { signal: AbortSignal.timeout(90000) })
     if (!response.ok || !response.body) throw new Error('Could not read the temporary CSV')
     const reader = response.body.getReader()
-    const decoder = new TextDecoder()
+    const decoder = new TextDecoder('utf-8', { fatal: true })
     let bytes = 0
+    let headerBytes = 0
+    let foundHeaderEnd = false
+    let lastByte = -1
     for (;;) {
       const { value, done } = await reader.read()
       if (done) break
@@ -47,10 +55,26 @@ Deno.serve(async (request) => {
         await reader.cancel()
         throw new Error('CSV exceeds the 100 MiB transfer limit')
       }
+      if (!foundHeaderEnd) {
+        const newline = value.indexOf(10)
+        headerBytes += newline >= 0 ? newline + 1 : value.byteLength
+        foundHeaderEnd = newline >= 0
+        if (headerBytes > 4096) throw new Error('CSV header exceeds its limit')
+      }
+      if (value.byteLength) lastByte = value[value.byteLength - 1]
       parser.push(decoder.decode(value, { stream: true }))
     }
     parser.push(decoder.decode())
+    if (!foundHeaderEnd || lastByte !== 10) throw new Error('Incremental CSV must contain a header and complete lines')
+    if (
+      headerBytes !== job.source_header_bytes ||
+      bytes !== job.uploaded_bytes ||
+      job.source_start_byte !== job.start_byte ||
+      job.source_end_byte !== (job.start_byte === 0 ? bytes : job.start_byte + bytes - headerBytes)
+    )
+      throw new Error('Incremental CSV byte range does not match the request')
     const minutes = parser.finish()
+    if (parser.afterUntilRows > 0) throw new Error('Incremental CSV contains rows after the requested cutoff')
     for (let offset = 0; offset < minutes.length; offset += 500) {
       const { error } = await db.rpc('ingest_minute_history', {
         p_device_id: job.device_id,
@@ -65,6 +89,7 @@ Deno.serve(async (request) => {
       p_minutes: minutes.length,
       p_skipped: parser.skippedRows + parser.duplicateRows,
       p_bytes: bytes,
+      p_header_bytes: headerBytes,
     })
     if (finishError || !finished) throw new Error('Could not confirm the completed import')
     // Only remove the worker's own temporary copy after its averages are committed.

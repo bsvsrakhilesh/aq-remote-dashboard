@@ -80,7 +80,9 @@ export function FleetReliability({ devices, refreshToken }: { devices: Device[];
         setLoading(false)
       }
     })
-    const timer = window.setInterval(() => void fetchRows(), 60000)
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void fetchRows()
+    }, 900000)
     return () => {
       alive = false
       window.clearInterval(timer)

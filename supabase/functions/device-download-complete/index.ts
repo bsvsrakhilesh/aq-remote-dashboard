@@ -10,13 +10,18 @@ Deno.serve(async (request) => {
   if (!body?.request_id) return json(request, { ok: false, error: 'invalid_request_id' }, 400)
   const { data: download } = await auth.db
     .from('download_requests')
-    .select('id,storage_path,status,total_bytes')
+    .select('id,storage_path,status,total_bytes,request_kind,source_start_byte,source_end_byte,source_header_bytes')
     .eq('id', body.request_id)
     .eq('device_id', auth.device.id)
     .maybeSingle()
   if (!download?.storage_path) return json(request, { ok: false, error: 'request_not_found' }, 404)
   if (download.status === 'ready') return json(request, { ok: true, status: 'ready', idempotent: true })
   if (download.status !== 'uploading') return json(request, { ok: false, error: 'invalid_state' }, 409)
+  if (
+    download.request_kind === 'minute_history' &&
+    (download.source_start_byte === null || download.source_end_byte === null || download.source_header_bytes === null)
+  )
+    return json(request, { ok: false, error: 'incremental_csv_required' }, 409)
   const { data: object, error: objectError } = await auth.db.storage
     .from('temporary-downloads')
     .info(download.storage_path)
@@ -24,7 +29,10 @@ Deno.serve(async (request) => {
   if (!download.total_bytes || Number(object.size) !== Number(download.total_bytes))
     return json(request, { ok: false, error: 'size_mismatch' }, 409)
   const now = new Date()
-  const expires = new Date(now.getTime() + 15 * 60 * 1000).toISOString()
+  // The automatic worker runs every 15 minutes. Keep its object available
+  // through several coordinator ticks; manual download links still last 15.
+  const readyMinutes = download.request_kind === 'minute_history' ? 60 : 15
+  const expires = new Date(now.getTime() + readyMinutes * 60 * 1000).toISOString()
   const { data: updated, error } = await auth.db
     .from('download_requests')
     .update({
