@@ -11,4 +11,6 @@ dist
 PM_CO2_XIAO_Expansion_IITD_CLOUD.ino
 firmware/aq_outdoor*/private_config.h
 firmware/aq_indoor*/private_config.h
+firmware/aq_indoor*/private_config.registration.json
 *.ino
+!firmware/aq_indoor*/aq_indoor*.ino

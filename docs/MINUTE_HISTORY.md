@@ -18,7 +18,7 @@ The page has a device selector, IST date selector, import status, data-through t
 
 ## Deployment
 
-Apply the database migrations, then deploy `device-upload-session`, `device-download-complete`, `process-csv-history`, and `device-check-in`. The worker authenticates with a separate random Vault token created by the migration. Never copy this token to firmware or frontend code. Flash all seven logger sketches to 1.2.5 before powering them on; older versions are blocked from automatic CSV sync and still send frequent Edge requests.
+Apply the database migrations, then deploy `device-upload-session`, `device-download-complete`, `process-csv-history`, and `device-check-in`. The worker authenticates with a separate random Vault token created by the migration. Never copy this token to firmware or frontend code. Flash each active logger with firmware 1.2.5 or newer before powering it on; older versions are blocked from automatic CSV sync and still send frequent Edge requests.
 
 Migration `202609250002_csv_history_schedule.sql` targets this repository's linked Supabase project. Change its worker URL before deploying a separate project. Scheduling follows the official [Supabase Cron](https://supabase.com/docs/guides/cron) / [scheduled functions](https://supabase.com/docs/guides/functions/schedule-functions) pattern.
 

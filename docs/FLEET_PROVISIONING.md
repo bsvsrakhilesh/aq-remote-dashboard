@@ -52,3 +52,19 @@ from public.devices;
 ```
 
 The production dashboard shows new devices automatically as soon as their rows exist. `last_seen` fills after the device sends its first successful heartbeat. The helper changes only database provisioning; it does not flash devices or generate firmware files for the remaining units.
+
+## Additional indoor loggers
+
+The SPS30 + SCD30 sketches for `aq_indoor02`, `aq_indoor03`, and `aq_indoor04` are in matching folders under `firmware/`. Each sketch uses its own device code, CSV filename prefix, and mDNS hostname (`aq-indoor02.local`, `aq-indoor03.local`, or `aq-indoor04.local`). They share the same 15-minute cloud check-in logic as `aq_indoor01`.
+
+These three devices are already registered in this repository's linked Supabase project. Their unique keys are stored in the matching git-ignored `private_config.h` files in this workspace; do not register them again or replace their keys. The linked project has CO₂ enabled for all three, and automatic one-minute history is paused.
+
+For a different Supabase project, register each unit once in its SQL Editor:
+
+```sql
+select * from logger_admin.register_logger('aq_indoor02', 'Indoor 02', 'scd30', 'SPS30 + SCD30 logger');
+select * from logger_admin.register_logger('aq_indoor03', 'Indoor 03', 'scd30', 'SPS30 + SCD30 logger');
+select * from logger_admin.register_logger('aq_indoor04', 'Indoor 04', 'scd30', 'SPS30 + SCD30 logger');
+```
+
+For a different project, copy each returned key into that unit's `private_config.h` and keep it out of Git. On this workspace, set `INDOOR_IITD_USERNAME` in each new private config before connecting to IITD Wi-Fi. The three keys must remain distinct. On another computer, transfer each key securely from its private config here; Supabase stores only hashes and cannot show the existing keys again. Enable automatic one-minute history per logger only after checking database and egress capacity.

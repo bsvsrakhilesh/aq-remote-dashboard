@@ -356,6 +356,7 @@ unsigned long lastWifiScanAttemptMs = 0;
  * Remote cloud dashboard state
  ***************************************************************/
 const unsigned long CLOUD_CHECKIN_INTERVAL_MS = 900000UL; // 15 minutes
+const unsigned long CLOUD_RECENT_SUCCESS_WINDOW_MS = CLOUD_CHECKIN_INTERVAL_MS + 120000UL;
 const uint32_t CLOUD_HTTP_TIMEOUT_MS = 10000UL;
 
 unsigned long lastCloudCheckInMs = 0;
@@ -1076,7 +1077,7 @@ void handleLiveData() {
   json += F(",\"ip\":\""); json += connected ? WiFi.localIP().toString() : String("--");
   json += F("\",\"rssi\":"); json += connected ? String(WiFi.RSSI()) : String("null");
   bool cloudOkNow = cloudConfigured() && lastCloudSuccessMs > 0 &&
-                    (liveMs - lastCloudSuccessMs) <= 180000UL;
+                    (liveMs - lastCloudSuccessMs) <= CLOUD_RECENT_SUCCESS_WINDOW_MS;
   String cloudDisplay = cloudHealth;
   if (!cloudConfigured()) cloudDisplay = "NOT CONFIGURED";
   else if (!connected) cloudDisplay = "WAITING FOR WIFI";
@@ -2465,7 +2466,7 @@ void updateOledIfNeeded() {
         display.print("Cloud: ");
         if (!cloudConfigured()) display.println("NOT CONFIG");
         else if (remoteUploadState != REMOTE_UPLOAD_IDLE) display.println("UPLOADING");
-        else if (lastCloudSuccessMs > 0 && millis() - lastCloudSuccessMs < 180000UL) display.println("OK");
+        else if (lastCloudSuccessMs > 0 && millis() - lastCloudSuccessMs < CLOUD_RECENT_SUCCESS_WINDOW_MS) display.println("OK");
         else display.println("WAITING");
       } else {
         display.println("Wi-Fi: NOT connected");
