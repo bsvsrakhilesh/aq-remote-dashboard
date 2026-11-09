@@ -4,25 +4,25 @@ This folder contains **new** Arduino sketches for `aq_indoor01`, `aq_indoor02`, 
 
 ## Files
 
-| Path | Purpose |
-| --- | --- |
-| `aq_indoor01/aq_indoor01.ino` | Logger 1 with ESP-NOW sender |
-| `aq_indoor02/aq_indoor02.ino` | Logger 2 with ESP-NOW sender |
-| `aq_indoor03/aq_indoor03.ino` | Logger 3 with ESP-NOW sender |
-| `fan_controller/fan_controller.ino` | ESP-NOW receiver and fan controller |
-| [`fan_wiring.svg`](fan_wiring.svg) | Wiring concept and isolation boundary |
+| Path                                                         | Purpose                                        |
+| ------------------------------------------------------------ | ---------------------------------------------- |
+| `aq_indoor01/aq_indoor01.ino`                                | Logger 1 with ESP-NOW sender                   |
+| `aq_indoor02/aq_indoor02.ino`                                | Logger 2 with ESP-NOW sender                   |
+| `aq_indoor03/aq_indoor03.ino`                                | Logger 3 with ESP-NOW sender                   |
+| `fan_controller/fan_controller.ino`                          | ESP-NOW receiver and fan controller            |
+| [`fan_wiring.svg`](fan_wiring.svg)                           | Wiring concept and isolation boundary          |
 | [`controller_local_dashboard/`](controller_local_dashboard/) | Optional wireless localhost dashboard over BLE |
 
 ## Control behavior
 
 The controller uses the arithmetic mean of **all currently valid** logger readings. A logger is valid until its SCD30 sample is 60 seconds old, including the time since the controller received its packet. One or two missing loggers do not stop control; the mean uses the remaining logger(s). With no valid readings, the controller switches the relay **off**. Invalid, stale, duplicate, incorrectly signed, and packets from an unexpected MAC after pairing are ignored.
 
-| Condition | Action |
-| --- | --- |
-| Mean strictly above 1000 ppm continuously for 30 seconds | Switch fan on |
-| Mean strictly below 800 ppm | Switch fan off immediately |
-| Mean 800–1000 ppm | Keep current fan state; reset an unfinished on timer |
-| All three readings absent/stale | Switch fan off and reset on timer |
+| Condition                                                | Action                                               |
+| -------------------------------------------------------- | ---------------------------------------------------- |
+| Mean strictly above 1000 ppm continuously for 30 seconds | Switch fan on                                        |
+| Mean strictly below 800 ppm                              | Switch fan off immediately                           |
+| Mean 800–1000 ppm                                        | Keep current fan state; reset an unfinished on timer |
+| All three readings absent/stale                          | Switch fan off and reset on timer                    |
 
 After data returns, the full 30-second high-CO₂ hold is required again. At boot the relay driver is off. The code uses `millis()` and does not depend on NTP, a router, cloud service, or Internet. The loggers keep their previous Wi-Fi features for dashboard use.
 
@@ -54,7 +54,7 @@ Web Bluetooth requires a supported browser, Bluetooth adapter, a user click, and
 
 ### Can `IN` connect directly to D10?
 
-The NPN is **not inherently required** if the *relay module input circuit* is specified and tested for 3.3 V GPIO operation. The JQC-3FC label identifies the relay, not that input circuit. Direct wiring is acceptable only when the module accepts a 3.3 V HIGH as OFF, pulls no GPIO above 3.3 V, has a known active-LOW trigger, and stays OFF while D10 is high impedance during reset. For that verified case, connect `D10 → IN` and put `#define FAN_RELAY_DIRECT_ACTIVE_LOW 1` in the **controller's** `private_config.h`; the sketch then drives LOW for ON and HIGH for OFF. Do not leave the default transistor polarity selected for direct wiring. If those input details are unavailable, keep the NPN circuit in the diagram. Do not connect the relay coil itself directly to a GPIO.
+The NPN is **not inherently required** if the _relay module input circuit_ is specified and tested for 3.3 V GPIO operation. The JQC-3FC label identifies the relay, not that input circuit. Direct wiring is acceptable only when the module accepts a 3.3 V HIGH as OFF, pulls no GPIO above 3.3 V, has a known active-LOW trigger, and stays OFF while D10 is high impedance during reset. For that verified case, connect `D10 → IN` and put `#define FAN_RELAY_DIRECT_ACTIVE_LOW 1` in the **controller's** `private_config.h`; the sketch then drives LOW for ON and HIGH for OFF. Do not leave the default transistor polarity selected for direct wiring. If those input details are unavailable, keep the NPN circuit in the diagram. Do not connect the relay coil itself directly to a GPIO.
 
 ## Mains assembly
 

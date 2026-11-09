@@ -19,9 +19,14 @@
         <div>
           <p class="eyebrow">Exhaust fan monitor</p>
           <h1>See what the controller is doing.</h1>
-          <p>Connect this computer to the nearby controller over Bluetooth. This page reads its status locally; it sends nothing to Wi-Fi, AQ Observatory, or Supabase.</p>
+          <p>
+            Connect this computer to the nearby controller over Bluetooth. This page reads its status locally; it sends
+            nothing to Wi-Fi, AQ Observatory, or Supabase.
+          </p>
         </div>
-        <button id="toggle-view" class="primary" type="button" aria-expanded="false" aria-controls="dashboard">Show local dashboard</button>
+        <button id="toggle-view" class="primary" type="button" aria-expanded="false" aria-controls="dashboard">
+          Show local dashboard
+        </button>
       </section>
 
       <section id="dashboard" class="dashboard" hidden aria-label="Controller dashboard">
@@ -61,12 +66,33 @@
             <span id="updated-at">No status received</span>
           </div>
           <div class="logger-grid">
-            <article class="logger" id="logger-1"><div class="logger-top"><h3>Logger 1</h3><span class="logger-status">Waiting</span></div><strong class="logger-value">—</strong><span class="logger-age">No reading</span></article>
-            <article class="logger" id="logger-2"><div class="logger-top"><h3>Logger 2</h3><span class="logger-status">Waiting</span></div><strong class="logger-value">—</strong><span class="logger-age">No reading</span></article>
-            <article class="logger" id="logger-3"><div class="logger-top"><h3>Logger 3</h3><span class="logger-status">Waiting</span></div><strong class="logger-value">—</strong><span class="logger-age">No reading</span></article>
+            <article class="logger" id="logger-1">
+              <div class="logger-top">
+                <h3>Logger 1</h3>
+                <span class="logger-status">Waiting</span>
+              </div>
+              <strong class="logger-value">—</strong><span class="logger-age">No reading</span>
+            </article>
+            <article class="logger" id="logger-2">
+              <div class="logger-top">
+                <h3>Logger 2</h3>
+                <span class="logger-status">Waiting</span>
+              </div>
+              <strong class="logger-value">—</strong><span class="logger-age">No reading</span>
+            </article>
+            <article class="logger" id="logger-3">
+              <div class="logger-top">
+                <h3>Logger 3</h3>
+                <span class="logger-status">Waiting</span>
+              </div>
+              <strong class="logger-value">—</strong><span class="logger-age">No reading</span>
+            </article>
           </div>
         </section>
-        <p class="footnote">The relay command reports the GPIO state, not measured fan rotation. Fan control stays on the controller even when this page is closed.</p>
+        <p class="footnote">
+          The relay command reports the GPIO state, not measured fan rotation. Fan control stays on the controller even
+          when this page is closed.
+        </p>
       </section>
 
       <footer>Runs entirely on this computer · Bluetooth Low Energy · No cloud requests</footer>

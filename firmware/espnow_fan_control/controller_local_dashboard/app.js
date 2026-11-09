@@ -77,17 +77,23 @@ function renderStatus() {
   document.querySelector('.fan-metric').className = `metric fan-metric ${status.fan_on ? 'on' : 'off'}`
   document.querySelector('#fan-detail').textContent = !streamFresh
     ? 'Last reported command; Bluetooth data has paused'
-    : status.fan_on ? 'Controller is commanding the relay on' : 'Controller is commanding the relay off'
-  document.querySelector('#mean-co2').textContent = status.mean_co2_ppm === null
-    ? '—' : status.mean_co2_ppm.toFixed(0)
+    : status.fan_on
+      ? 'Controller is commanding the relay on'
+      : 'Controller is commanding the relay off'
+  document.querySelector('#mean-co2').textContent = status.mean_co2_ppm === null ? '—' : status.mean_co2_ppm.toFixed(0)
   document.querySelector('#valid-count').textContent = String(status.valid_loggers)
-  document.querySelector('#mean-detail').textContent = status.on_hold_remaining_ms !== null
-    ? `Fan-on hold: ${Math.ceil(status.on_hold_remaining_ms / 1000)} s remaining`
-    : status.valid_loggers === 0 ? 'No fresh logger readings; fan fails off' : 'Mean of fresh logger readings'
+  document.querySelector('#mean-detail').textContent =
+    status.on_hold_remaining_ms !== null
+      ? `Fan-on hold: ${Math.ceil(status.on_hold_remaining_ms / 1000)} s remaining`
+      : status.valid_loggers === 0
+        ? 'No fresh logger readings; fan fails off'
+        : 'Mean of fresh logger readings'
   document.querySelector('#radio-detail').textContent = status.radio_ready
-    ? `ESP-NOW listening · channel ${status.channel}` : 'ESP-NOW receiver unavailable'
+    ? `ESP-NOW listening · channel ${status.channel}`
+    : 'ESP-NOW receiver unavailable'
   document.querySelector('#updated-at').textContent = streamFresh
-    ? `Updated ${Math.round(frameAgeMs / 1000)} s ago` : 'Bluetooth status is out of date'
+    ? `Updated ${Math.round(frameAgeMs / 1000)} s ago`
+    : 'Bluetooth status is out of date'
 
   for (const logger of status.loggers) {
     const card = document.querySelector(`#logger-${logger.id}`)
@@ -96,12 +102,15 @@ function renderStatus() {
     card.className = `logger ${fresh ? 'fresh' : 'stale'}`
     card.querySelector('.logger-status').textContent = fresh ? 'Fresh' : 'Unavailable'
     card.querySelector('.logger-value').textContent = logger.co2_ppm === null ? '—' : `${logger.co2_ppm} ppm`
-    card.querySelector('.logger-age').textContent = ageMs === null
-      ? 'No reading received' : `Last measurement ${Math.round(ageMs / 1000)} s ago`
+    card.querySelector('.logger-age').textContent =
+      ageMs === null ? 'No reading received' : `Last measurement ${Math.round(ageMs / 1000)} s ago`
   }
 
   if (device?.gatt?.connected) {
-    setConnection(streamFresh ? 'Live from controller Bluetooth' : 'Waiting for controller data', streamFresh ? 'live' : 'waiting')
+    setConnection(
+      streamFresh ? 'Live from controller Bluetooth' : 'Waiting for controller data',
+      streamFresh ? 'live' : 'waiting',
+    )
   }
 }
 
@@ -173,8 +182,12 @@ async function connectBluetooth() {
     if (connectionEpoch === epoch && !dashboard.hidden) {
       const canceled = error instanceof DOMException && error.name === 'NotFoundError'
       setConnection(canceled ? 'No device selected' : 'Connection failed')
-      setMessage(canceled ? 'Choose AQ-FAN when ready.' :
-        `Could not connect: ${error instanceof Error ? error.message : 'unknown error'}. Make sure Bluetooth is on and the controller is nearby.`, !canceled)
+      setMessage(
+        canceled
+          ? 'Choose AQ-FAN when ready.'
+          : `Could not connect: ${error instanceof Error ? error.message : 'unknown error'}. Make sure Bluetooth is on and the controller is nearby.`,
+        !canceled,
+      )
     }
   } finally {
     connecting = false
