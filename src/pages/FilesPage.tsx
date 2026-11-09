@@ -1,17 +1,18 @@
 import { Database, Download, FileText, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { DownloadModal } from '../components/DownloadModal'
+import { FileTransferQueue } from '../components/FileTransferQueue'
 import { useAllFiles } from '../hooks/useData'
+import { useFileTransfers } from '../hooks/useFileTransfers'
 import { usePreferences } from '../hooks/usePreferences'
 import { readOnlyMode } from '../services/supabase'
-import type { DeviceFile } from '../types'
 import { formatFileCreatedAt, formatFileSize, getDeviceState } from '../utils'
 
 export function FilesPage() {
   const [query, setQuery] = useState('')
   const [deviceFilter, setDeviceFilter] = useState('all')
-  const [selected, setSelected] = useState<{ file: DeviceFile; code: string; id: string } | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const { data, loading, error, reload } = useAllFiles()
+  const { transfers, requestFiles, cancel, dismiss } = useFileTransfers()
   const { preferences } = usePreferences()
   const devices = useMemo(
     () =>
@@ -26,6 +27,23 @@ export function FilesPage() {
       (deviceFilter === 'all' || row.device.id === deviceFilter),
   )
   const deviceCount = new Set(data.map((row) => row.device.id)).size
+  const isOffline = (lastSeen: string) =>
+    getDeviceState(lastSeen, new Date(), {
+      onlineMinutes: preferences.onlineMinutes,
+      staleMinutes: preferences.staleMinutes,
+    }) === 'offline'
+  const selectableRows = rows.filter((row) => !isOffline(row.device.lastSeen))
+  const toggleSelected = (id: string) =>
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const requestSelected = () => {
+    requestFiles(data.filter((row) => selectedIds.has(row.file.id) && !isOffline(row.device.lastSeen)))
+    setSelectedIds(new Set())
+  }
   return (
     <div className="page">
       <section className="page-heading">
@@ -55,6 +73,11 @@ export function FilesPage() {
             <p>{loading ? 'Loading catalog...' : `${rows.length} files across ${deviceCount} loggers`}</p>
           </div>
           <div className="controls">
+            {!readOnlyMode && (
+              <button className="button primary small" disabled={!selectedIds.size} onClick={requestSelected}>
+                <Download size={15} /> Request selected ({selectedIds.size})
+              </button>
+            )}
             <label className="search">
               <Search size={17} />
               <input
@@ -83,7 +106,25 @@ export function FilesPage() {
         <p className="table-scroll-hint">Scroll sideways to see all file details and actions.</p>
         <div className="data-table" role="table" aria-label="Logger data files" tabIndex={0}>
           <div className="table-header" role="row">
-            <span role="columnheader">File</span>
+            <span role="columnheader" className="file-select-cell">
+              <input
+                type="checkbox"
+                aria-label="Select all visible online files"
+                disabled={readOnlyMode || !selectableRows.length}
+                checked={!!selectableRows.length && selectableRows.every((row) => selectedIds.has(row.file.id))}
+                onChange={(event) =>
+                  setSelectedIds((current) => {
+                    const next = new Set(current)
+                    selectableRows.forEach((row) => {
+                      if (event.target.checked) next.add(row.file.id)
+                      else next.delete(row.file.id)
+                    })
+                    return next
+                  })
+                }
+              />
+              File
+            </span>
             <span role="columnheader">Logger</span>
             <span role="columnheader" title="Time of the first logged reading in each file">
               Created
@@ -101,14 +142,17 @@ export function FilesPage() {
                 </div>
               ))
             : rows.map(({ file, device }) => {
-                const offline =
-                  getDeviceState(device.lastSeen, new Date(), {
-                    onlineMinutes: preferences.onlineMinutes,
-                    staleMinutes: preferences.staleMinutes,
-                  }) === 'offline'
+                const offline = isOffline(device.lastSeen)
                 return (
                   <div className="table-row" role="row" key={file.id}>
                     <span className="file-name-cell" role="cell">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${file.filename} from ${device.code}`}
+                        checked={selectedIds.has(file.id)}
+                        disabled={readOnlyMode || offline}
+                        onChange={() => toggleSelected(file.id)}
+                      />
                       <i>
                         <FileText size={17} />
                       </i>
@@ -122,7 +166,7 @@ export function FilesPage() {
                     <button
                       className="button secondary small"
                       disabled={readOnlyMode || offline}
-                      onClick={() => setSelected({ file, code: device.code, id: device.id })}
+                      onClick={() => requestFiles([{ file, device }])}
                     >
                       <Download size={15} /> {offline ? 'Offline' : 'Request'}
                     </button>
@@ -142,14 +186,12 @@ export function FilesPage() {
           </div>
         )}
       </section>
-      {selected && (
-        <DownloadModal
-          file={selected.file}
-          deviceCode={selected.code}
-          deviceId={selected.id}
-          onClose={() => setSelected(null)}
-        />
-      )}
+      <FileTransferQueue
+        transfers={transfers}
+        onCancel={(key, requestId) => void cancel(key, requestId)}
+        onDismiss={dismiss}
+        onRetry={(transfer) => requestFiles([transfer.item])}
+      />
     </div>
   )
 }

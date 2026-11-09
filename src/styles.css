@@ -1471,6 +1471,16 @@ a {
   gap: 9px;
   font: 500 0.75rem 'DM Mono';
 }
+.file-select-cell {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.file-name-cell input[type='checkbox'],
+.file-select-cell input[type='checkbox'] {
+  flex: none;
+  accent-color: var(--brand);
+}
 .file-name-cell i {
   display: grid;
   place-items: center;
@@ -1479,6 +1489,52 @@ a {
   border-radius: 6px;
   background: var(--brand-soft);
   color: var(--brand);
+}
+.transfer-panel {
+  margin-top: 20px;
+}
+.transfer-list {
+  display: grid;
+  gap: 12px;
+}
+.transfer-item {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.transfer-item-head,
+.transfer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.transfer-item-head strong,
+.transfer-item-head span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.transfer-item-head span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 4px;
+}
+.transfer-item .progress-copy {
+  margin-top: 14px;
+}
+.transfer-item .progress-copy span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.transfer-actions {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.transfer-error {
+  color: #9d3d3d;
+  font-size: 0.75rem;
+  margin: 8px 0 0;
 }
 .settings-grid {
   display: grid;

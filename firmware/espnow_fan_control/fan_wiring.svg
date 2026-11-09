@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="860" viewBox="0 0 1120 860" role="img" aria-labelledby="title desc">
+  <title id="title">230 V exhaust fan control with XIAO ESP32-S3 and 5 V relay module</title>
+  <desc id="desc">Mains live passes through protection, relay COM and NO to the fan. Neutral and protective earth remain continuous through insulated terminals. An isolated 5 V supply powers the relay module and powers the XIAO through a series Schottky diode. XIAO D10 GPIO9 drives an NPN transistor that pulls a verified active-low relay input low.</desc>
+  <style>
+    text{font-family:Arial,sans-serif;fill:#182235} .title{font-size:26px;font-weight:700} .section{font-size:19px;font-weight:700} .label{font-size:16px;font-weight:600} .small{font-size:13px} .note{font-size:14px} .box{fill:white;stroke:#596579;stroke-width:2;rx:10} .mains{fill:#fff5f1;stroke:#d16e4d;stroke-width:2} .low{fill:#eef8ff;stroke:#4d92c7;stroke-width:2} .live{fill:none;stroke:#b33924;stroke-width:4} .neutral{fill:none;stroke:#2358a0;stroke-width:4} .earth{fill:none;stroke:#44803d;stroke-width:4} .dc{fill:none;stroke:#7651b3;stroke-width:3} .gnd{fill:none;stroke:#4b5965;stroke-width:3} .signal{fill:none;stroke:#d07819;stroke-width:3} .dot{fill:#182235}
+  </style>
+  <text x="30" y="42" class="title">CO₂ controlled 230 V exhaust fan</text>
+  <text x="30" y="65" class="small">Conceptual wiring; component ratings, enclosure and installation require electrician approval.</text>
+
+  <rect x="25" y="90" width="1070" height="344" rx="15" class="mains"/>
+  <text x="45" y="122" class="section">230 V AC compartment</text>
+  <rect x="45" y="145" width="130" height="225" class="box"/>
+  <text x="61" y="173" class="label">Supply inlet</text>
+  <text x="61" y="194" class="small">strain relief</text>
+  <text x="65" y="229" class="label">L</text><text x="65" y="291" class="label">N</text><text x="65" y="351" class="label">PE</text>
+  <path d="M85 224 H214" class="live"/><path d="M85 285 H436" class="neutral"/><path d="M85 346 H436" class="earth"/>
+  <rect x="215" y="200" width="144" height="49" class="box"/>
+  <text x="228" y="220" class="small">MCB or fuse</text><text x="228" y="237" class="small">+ RCD where required</text>
+  <path d="M359 224 H484" class="live"/>
+  <rect x="480" y="172" width="214" height="94" class="box"/>
+  <text x="499" y="197" class="label">Motor-rated contacts</text>
+  <text x="495" y="244" class="small">COM</text><text x="646" y="244" class="small">NO</text>
+  <path d="M484 224 H553 L592 208 M615 224 H690" class="live"/>
+  <circle cx="553" cy="224" r="5" fill="#b33924"/><circle cx="615" cy="224" r="5" fill="#b33924"/>
+  <path d="M694 224 H802" class="live"/>
+  <rect x="437" y="263" width="153" height="42" class="box"/><text x="450" y="289" class="small">Insulated N terminal</text>
+  <path d="M590 285 H802" class="neutral"/>
+  <rect x="437" y="325" width="153" height="42" class="box"/><text x="450" y="351" class="small">PE terminal, if used</text>
+  <path d="M590 346 H802" class="earth"/>
+  <rect x="803" y="171" width="252" height="201" class="box"/>
+  <text x="825" y="201" class="label">Exhaust fan</text>
+  <text x="825" y="225" class="small">outlet strain relief</text>
+  <text x="824" y="248" class="small">L ← relay NO</text>
+  <text x="824" y="305" class="small">N ← uninterrupted neutral</text>
+  <text x="824" y="366" class="small">PE ← continuous if required</text>
+  <text x="45" y="405" class="note">All mains terminals covered. Select relay/contactor for fan motor inrush and inductive duty.</text>
+
+  <rect x="25" y="451" width="1070" height="373" rx="15" class="low"/>
+  <text x="45" y="482" class="section">Isolated 5 V DC compartment</text>
+  <rect x="45" y="515" width="216" height="105" class="box"/>
+  <text x="62" y="542" class="label">Certified isolated</text>
+  <text x="62" y="565" class="label">regulated 5 V PSU</text>
+  <text x="62" y="592" class="small">mains input protected inside</text>
+  <path d="M261 545 H806" class="dc"/><path d="M261 605 H806" class="gnd"/>
+  <text x="274" y="535" class="small">+5 V</text><text x="274" y="626" class="small">GND</text>
+  <rect x="60" y="669" width="242" height="117" class="box"/>
+  <text x="79" y="695" class="label">Seeed XIAO ESP32-S3</text>
+  <text x="79" y="720" class="small">D10 / GPIO9 → driver</text>
+  <text x="79" y="744" class="small">5V / VBUS ← diode output</text>
+  <text x="79" y="766" class="small">GND ← common DC ground</text>
+  <path d="M45 545 H40 V630" class="dc"/>
+  <rect x="30" y="630" width="260" height="34" class="box"/>
+  <text x="45" y="651" class="small">Schottky: anode top, cathode bottom</text>
+  <path d="M40 664 V739 H60" class="dc"/>
+  <path d="M380 605 V639 H327 V761 H302" class="gnd"/>
+  <circle cx="380" cy="605" r="5" class="dot"/>
+  <path d="M302 715 H379" class="signal"/>
+  <rect x="379" y="694" width="75" height="42" class="box"/><text x="391" y="721" class="small">4.7 kΩ</text>
+  <path d="M454 715 H509" class="signal"/>
+  <circle cx="509" cy="715" r="5" fill="#d07819"/>
+  <path d="M509 715 H552 M552 689 V742 M552 689 L591 667 M552 742 L591 764" class="signal"/>
+  <text x="592" y="707" class="small">NPN, e.g. 2N2222</text>
+  <path d="M591 667 H722 V665 H806" class="signal"/>
+  <path d="M591 764 H738 V605" class="gnd"/>
+  <circle cx="738" cy="605" r="5" class="dot"/>
+  <path d="M509 715 V750" class="gnd"/>
+  <rect x="488" y="750" width="43" height="37" class="box"/>
+  <text x="496" y="774" class="small">100k</text>
+  <path d="M509 787 V804 H738 V764" class="gnd"/>
+  <rect x="806" y="510" width="248" height="187" class="box"/>
+  <text x="821" y="538" class="label">5 V relay module</text>
+  <text x="821" y="563" class="small">VCC ← +5 V</text>
+  <text x="821" y="623" class="small">GND ← DC ground</text>
+  <text x="821" y="681" class="small">IN ← NPN collector</text>
+  <text x="821" y="714" class="small">Verify active-LOW input type</text>
+  <text x="45" y="814" class="small">D10 HIGH → NPN sinks IN → relay ON. D10 LOW/reset → base pulldown → relay OFF. Never connect 5 V directly to a GPIO.</text>
+  <text x="30" y="846" class="small">Direct D10 → IN is optional only for a verified 3.3 V-compatible active-LOW module; select FAN_RELAY_DIRECT_ACTIVE_LOW=1.</text>
+  <path d="M641 266 V499" stroke="#8e98a4" stroke-width="2" stroke-dasharray="6 6"/>
+  <text x="652" y="441" class="small">same enclosed relay assembly;</text>
+  <text x="652" y="457" class="small">no wire across isolation barrier</text>
+</svg>

@@ -31,7 +31,7 @@ Deno.serve(async (request) => {
   if (!file) return json(request, { ok: false, error: 'file_not_found' }, 404)
   const { data: active } = await db
     .from('download_requests')
-    .select('id,status')
+    .select('id,status,expires_at')
     .eq('device_id', body.device_id)
     .eq('filename', body.filename)
     .eq('created_by', user.id)
@@ -39,7 +39,8 @@ Deno.serve(async (request) => {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (active) return json(request, { ok: true, request_id: active.id, status: active.status, deduplicated: true })
+  if (active && (active.status !== 'ready' || (active.expires_at && new Date(active.expires_at) > new Date())))
+    return json(request, { ok: true, request_id: active.id, status: active.status, deduplicated: true })
   const { data: download, error: requestError } = await db
     .from('download_requests')
     .insert({ device_id: body.device_id, filename: body.filename, total_bytes: file.size_bytes, created_by: user.id })

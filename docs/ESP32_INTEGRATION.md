@@ -2,7 +2,7 @@
 
 Cloud work is secondary. Use short timeouts, an independent FreeRTOS task or a cooperative state machine, small fixed buffers, exponential retry, and `yield()` between chunks. Failed network work must never pause sampling or SD writes.
 
-All device endpoints use `POST` except command polling. Include `X-Device-ID: AQ01`, `X-Device-Key: <unique random secret>`, and `Content-Type: application/json`. Base URL: `https://<project-ref>.supabase.co/functions/v1`.
+Device endpoints use `POST`. Include `X-Device-ID: AQ01`, `X-Device-Key: <unique random secret>`, and `Content-Type: application/json`. Base URL: `https://<project-ref>.supabase.co/functions/v1`.
 
 | Operation             | Method and path                  | Typical response                     |
 | --------------------- | -------------------------------- | ------------------------------------ |
@@ -83,11 +83,11 @@ The dashboard shows a CO₂ value, a ppm history chart with all four time ranges
 
 ### Background cloud task
 
-Firmware 1.2.5 sends health and telemetry and retrieves one queued command in a single `device-check-in` POST every fifteen minutes while connected. File-list and download requests can wait up to fifteen minutes before the logger receives them. One continuously connected logger therefore makes 96 regular Edge Function invocations per day. Seven make 20,832 in a 31-day month; fifty make 148,800, plus transfer requests, retries, and other functions. Review the organization's usage page before adding loggers.
+The updated firmware calls `device-check-in` every minute while connected. Each call sends health and retrieves one queued command; telemetry is included only every fifteen minutes. A file-list or download request normally waits less than one minute before the logger receives it, unless the logger is offline or already uploading a file. One continuously connected logger therefore makes 1,440 regular Edge Function invocations per day. Three make 129,600 in a 30-day month, plus transfer requests, retries, and other functions. Each logger streams one requested file at a time; requests for different loggers can run together. A second file from one logger remains queued and is picked up after the first upload completes; queued commands expire after six hours.
 
 ```cpp
 void cloudTask() {
-  if (checkInDue()) sendHealthTelemetryAndGetCommand();
+  if (minutePollDue()) sendHealthAndGetCommand(telemetryDue());
 }
 
 void handleCommand() {

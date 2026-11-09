@@ -416,7 +416,7 @@ export function DevicePage() {
       <section className="architecture-note">
         <div>
           <strong>Remote dashboard</strong>
-          <span>15-minute telemetry, device health and requested CSV transfers.</span>
+          <span>15-minute telemetry, one-minute command checks and requested CSV transfers.</span>
         </div>
         <div>
           <strong>Local dashboard</strong>

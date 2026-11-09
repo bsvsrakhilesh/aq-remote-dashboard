@@ -85,7 +85,7 @@ const char* DEVICE_HOSTNAME = "aq_indoor04";
 const char* NETWORK_HOSTNAME = "aq-indoor04";
 
 // Firmware identifier shown in the remote dashboard heartbeat.
-const char* FIRMWARE_VERSION = "pm-co2-iitd-cloud-1.2.5";
+const char* FIRMWARE_VERSION = "pm-co2-iitd-cloud-1.2.6";
 
 // -----------------------------------------------------------------------------
 // IIT Delhi WPA2-Enterprise / PEAP configuration
@@ -356,10 +356,12 @@ unsigned long lastWifiScanAttemptMs = 0;
  * Remote cloud dashboard state
  ***************************************************************/
 const unsigned long CLOUD_CHECKIN_INTERVAL_MS = 900000UL; // 15 minutes
+const unsigned long CLOUD_COMMAND_POLL_INTERVAL_MS = 60000UL; // 1 minute
 const unsigned long CLOUD_RECENT_SUCCESS_WINDOW_MS = CLOUD_CHECKIN_INTERVAL_MS + 120000UL;
 const uint32_t CLOUD_HTTP_TIMEOUT_MS = 10000UL;
 
 unsigned long lastCloudCheckInMs = 0;
+unsigned long lastCloudCommandPollMs = 0;
 unsigned long lastCloudSuccessMs = 0;
 int lastCloudHttpCode = 0;
 String cloudHealth = "NOT CONFIGURED";
@@ -2628,7 +2630,7 @@ void serviceSdLogging() {
  ***************************************************************/
 void handleCloudCommandResponse(const String& response);
 
-void sendCloudCheckIn() {
+void sendCloudCheckIn(bool includeTelemetry) {
   LoggerStateLock guard;
   DateTime trustedNow;
   bool trustedTime = getTrustedLogTime(trustedNow);
@@ -2650,7 +2652,7 @@ void sendCloudCheckIn() {
   body += ",\"current_file\":\"" + jsonEscape(getLogDownloadName()) + "\"";
   body += ",\"current_file_size\":" + String((uint32_t)currentLogFileSizeBytes);
   body += ",\"firmware_version\":\"" + jsonEscape(FIRMWARE_VERSION) + "\"";
-  if (trustedTime) {
+  if (trustedTime && includeTelemetry) {
     body += ",\"telemetry\":{";
     body += "\"pm1\":" + jsonFloatOrNull(measurement.mc_1p0,
       spsOk && measurement.mc_1p0 >= 0 && measurement.mc_1p0 <= 10000);
@@ -2670,7 +2672,7 @@ void sendCloudCheckIn() {
   String response;
   int code = cloudPost("device-check-in", body, &response);
   if (code >= 200 && code < 300) {
-    Serial.println("15-minute cloud check-in OK.");
+    Serial.println(includeTelemetry ? "15-minute cloud check-in OK." : "Cloud command poll OK.");
     handleCloudCommandResponse(response);
   }
 }
@@ -3236,11 +3238,15 @@ void serviceCloudDashboard() {
   // streaming, so progress updates cannot compete with command polling.
   if (remoteUploadState != REMOTE_UPLOAD_IDLE) return;
 
-  // One scheduled request carries health, telemetry, and the next command.
-  if (lastCloudCheckInMs == 0 ||
-      ms - lastCloudCheckInMs >= CLOUD_CHECKIN_INTERVAL_MS) {
-    lastCloudCheckInMs = ms;
-    sendCloudCheckIn();
+  // Poll commands each minute; include telemetry only every 15 minutes.
+  bool telemetryDue = lastCloudCheckInMs == 0 ||
+                      ms - lastCloudCheckInMs >= CLOUD_CHECKIN_INTERVAL_MS;
+  bool commandDue = lastCloudCommandPollMs == 0 ||
+                    ms - lastCloudCommandPollMs >= CLOUD_COMMAND_POLL_INTERVAL_MS;
+  if (telemetryDue || commandDue) {
+    lastCloudCommandPollMs = ms;
+    if (telemetryDue) lastCloudCheckInMs = ms;
+    sendCloudCheckIn(telemetryDue);
   }
 }
 

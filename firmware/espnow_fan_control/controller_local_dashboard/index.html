@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Local Fan Controller</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="./app.js" type="module"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="heading">
+        <div class="brand"><span class="brand-mark" aria-hidden="true">◉</span> AQ Fan Controller</div>
+        <span class="local-tag">LOCAL BLUETOOTH VIEW</span>
+      </header>
+
+      <section class="intro">
+        <div>
+          <p class="eyebrow">Exhaust fan monitor</p>
+          <h1>See what the controller is doing.</h1>
+          <p>Connect this computer to the nearby controller over Bluetooth. This page reads its status locally; it sends nothing to Wi-Fi, AQ Observatory, or Supabase.</p>
+        </div>
+        <button id="toggle-view" class="primary" type="button" aria-expanded="false" aria-controls="dashboard">Show local dashboard</button>
+      </section>
+
+      <section id="dashboard" class="dashboard" hidden aria-label="Controller dashboard">
+        <div class="toolbar">
+          <div class="connection">
+            <span id="connection-dot" class="connection-dot" aria-hidden="true"></span>
+            <span id="connection-text" role="status">Waiting for Bluetooth</span>
+          </div>
+          <button id="connect" class="secondary" type="button">Connect Bluetooth</button>
+        </div>
+        <p id="message" class="message" role="status">Choose AQ-FAN when your browser asks for a Bluetooth device.</p>
+
+        <div class="metrics">
+          <article class="metric fan-metric">
+            <p>Relay command</p>
+            <strong id="fan-state">—</strong>
+            <span id="fan-detail">Waiting for controller data</span>
+          </article>
+          <article class="metric">
+            <p>Spatial mean CO₂</p>
+            <strong><span id="mean-co2">—</span><small> ppm</small></strong>
+            <span id="mean-detail">No valid readings yet</span>
+          </article>
+          <article class="metric">
+            <p>Fresh loggers</p>
+            <strong><span id="valid-count">—</span><small> / 3</small></strong>
+            <span id="radio-detail">ESP-NOW status pending</span>
+          </article>
+        </div>
+
+        <section class="logger-section" aria-labelledby="logger-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Input readings</p>
+              <h2 id="logger-title">Indoor loggers</h2>
+            </div>
+            <span id="updated-at">No status received</span>
+          </div>
+          <div class="logger-grid">
+            <article class="logger" id="logger-1"><div class="logger-top"><h3>Logger 1</h3><span class="logger-status">Waiting</span></div><strong class="logger-value">—</strong><span class="logger-age">No reading</span></article>
+            <article class="logger" id="logger-2"><div class="logger-top"><h3>Logger 2</h3><span class="logger-status">Waiting</span></div><strong class="logger-value">—</strong><span class="logger-age">No reading</span></article>
+            <article class="logger" id="logger-3"><div class="logger-top"><h3>Logger 3</h3><span class="logger-status">Waiting</span></div><strong class="logger-value">—</strong><span class="logger-age">No reading</span></article>
+          </div>
+        </section>
+        <p class="footnote">The relay command reports the GPIO state, not measured fan rotation. Fan control stays on the controller even when this page is closed.</p>
+      </section>
+
+      <footer>Runs entirely on this computer · Bluetooth Low Energy · No cloud requests</footer>
+    </main>
+  </body>
+</html>

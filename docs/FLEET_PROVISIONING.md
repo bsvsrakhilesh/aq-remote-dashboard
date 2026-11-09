@@ -55,7 +55,7 @@ The production dashboard shows new devices automatically as soon as their rows e
 
 ## Additional indoor loggers
 
-The SPS30 + SCD30 sketches for `aq_indoor02`, `aq_indoor03`, and `aq_indoor04` are in matching folders under `firmware/`. Each sketch uses its own device code, CSV filename prefix, and mDNS hostname (`aq-indoor02.local`, `aq-indoor03.local`, or `aq-indoor04.local`). They share the same 15-minute cloud check-in logic as `aq_indoor01`.
+The SPS30 + SCD30 sketches for `aq_indoor02`, `aq_indoor03`, and `aq_indoor04` are in matching folders under `firmware/`. Each sketch uses its own device code, CSV filename prefix, and mDNS hostname (`aq-indoor02.local`, `aq-indoor03.local`, or `aq-indoor04.local`). They share the one-minute command check and 15-minute telemetry cadence of `aq_indoor01`.
 
 These three devices are already registered in this repository's linked Supabase project. Their unique keys are stored in the matching git-ignored `private_config.h` files in this workspace; do not register them again or replace their keys. The linked project has CO₂ enabled for all three, and automatic one-minute history is paused.
 

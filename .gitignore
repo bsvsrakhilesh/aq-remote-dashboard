@@ -1,5 +1,6 @@
 node_modules
 dist
+.build/
 .env
 .env.local
 *.log
@@ -14,3 +15,6 @@ firmware/aq_indoor*/private_config.h
 firmware/aq_indoor*/private_config.registration.json
 *.ino
 !firmware/aq_indoor*/aq_indoor*.ino
+!firmware/espnow_fan_control/**/aq_indoor*.ino
+!firmware/espnow_fan_control/**/fan_controller.ino
+firmware/espnow_fan_control/**/private_config.h
