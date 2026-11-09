@@ -20,6 +20,8 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
   const [url, setUrl] = useState('')
   const [error, setError] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
+  const [linkUnavailable, setLinkUnavailable] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [now, setNow] = useState(Date.now())
   const modalRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -65,6 +67,13 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
       .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`
   }, [expiresAt, now])
   useEffect(() => {
+    setRequestId('')
+    setProgress(0)
+    setStatus('queued')
+    setUrl('')
+    setError('')
+    setExpiresAt('')
+    setLinkUnavailable(false)
     if (demoMode) {
       const timer = window.setInterval(
         () =>
@@ -89,10 +98,17 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
     let active = true
     let poll = 0
     let polling = true
+    const fail = () => {
+      if (!active) return
+      setStatus('failed')
+      setError('The transfer service could not complete this request. Please try again.')
+      polling = false
+      window.clearInterval(poll)
+    }
     void (async () => {
       const invoke = () =>
         client.functions.invoke('request-file-download', {
-          body: { device_id: deviceId, filename: file.filename },
+          body: { device_id: deviceId, filename: file.filename, refresh_ready: attempt > 0 },
         })
       let { data, error: requestError } = await invoke()
       if (requestError instanceof FunctionsHttpError && requestError.context.status === 401) {
@@ -134,7 +150,8 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
           .single()
         if (!active) return
         if (pollError) {
-          setError('Transfer status is temporarily unavailable. Close this window and retry from the file list.')
+          setStatus('failed')
+          setError('Transfer status is temporarily unavailable. Request the file again.')
           polling = false
           window.clearInterval(poll)
           return
@@ -142,58 +159,76 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
         const nextStatus = row.status as DownloadStatus
         setStatus(nextStatus)
         setProgress(row.progress_percent)
-        if (row.error_message) setError(row.error_message)
+        setError(row.error_message ?? '')
         if (['failed', 'expired'].includes(nextStatus)) {
           polling = false
           window.clearInterval(poll)
         }
-        if (nextStatus === 'ready' && row.storage_path && row.expires_at) {
+        if (nextStatus === 'ready') {
+          if (!row.storage_path || !row.expires_at) {
+            setLinkUnavailable(true)
+            setError('The secure download link is unavailable. Request a fresh copy.')
+            polling = false
+            window.clearInterval(poll)
+            return
+          }
+          const seconds = Math.floor((new Date(row.expires_at).getTime() - Date.now()) / 1000)
+          if (seconds <= 0) {
+            setStatus('expired')
+            setError('The temporary download link has expired. Request a fresh copy.')
+            polling = false
+            window.clearInterval(poll)
+            return
+          }
           setExpiresAt(row.expires_at)
-          const seconds = Math.max(1, Math.floor((new Date(row.expires_at).getTime() - Date.now()) / 1000))
           const { data: signed, error: signError } = await client.storage
             .from('temporary-downloads')
             .createSignedUrl(row.storage_path, seconds)
-          if (signed) setUrl(signed.signedUrl)
-          if (signError) setError('The secure download link could not be created. Retry the request.')
+          if (!active) return
+          if (signed?.signedUrl && !signError) setUrl(signed.signedUrl)
+          if (signError || !signed?.signedUrl) {
+            setLinkUnavailable(true)
+            setError('The secure download link could not be created. Request a fresh copy.')
+          }
           polling = false
           window.clearInterval(poll)
         }
       }
       await check()
-      if (active && polling) poll = window.setInterval(() => void check(), 10000)
-    })()
+      if (active && polling) poll = window.setInterval(() => void check().catch(fail), 10000)
+    })().catch(fail)
     return () => {
       active = false
       window.clearInterval(poll)
     }
-  }, [deviceId, file.filename])
+  }, [attempt, deviceId, file.filename])
   const cancel = async () => {
     if (!demoMode && supabase && requestId)
       await supabase.functions.invoke('cancel-file-download', { body: { request_id: requestId } })
     onClose()
   }
-  const terminal = status === 'failed' || status === 'expired'
-  const Icon = status === 'ready' ? CheckCircle2 : terminal ? AlertTriangle : FileText
+  const expiredLink = status === 'ready' && !!expiresAt && new Date(expiresAt).getTime() <= now
+  const terminal = status === 'failed' || status === 'expired' || linkUnavailable || expiredLink
+  const ready = status === 'ready' && !terminal
+  const Icon = ready ? CheckCircle2 : terminal ? AlertTriangle : FileText
   return (
     <div className="modal-layer" role="dialog" aria-modal="true" aria-labelledby="download-title">
       <div className="modal" ref={modalRef}>
         <button className="modal-close icon-btn" onClick={onClose} aria-label="Close">
           <X size={18} />
         </button>
-        <div className={`modal-icon ${status === 'ready' ? 'success' : terminal ? 'failure' : ''}`}>
+        <div className={`modal-icon ${ready ? 'success' : terminal ? 'failure' : ''}`}>
           <Icon />
         </div>
         <span className="eyebrow">Secure temporary transfer</span>
         <h2 id="download-title">
-          {status === 'ready' ? 'Your file is ready' : terminal ? 'Transfer unavailable' : 'Retrieving data file'}
+          {ready ? 'Your file is ready' : terminal ? 'Transfer unavailable' : 'Retrieving data file'}
         </h2>
         <p>
-          {status === 'ready'
+          {ready
             ? 'Download before the private link expires.'
             : terminal
-              ? requestId
-                ? 'The logger could not complete this request.'
-                : 'The transfer request could not be started.'
+              ? 'Request a fresh copy to try again.'
               : status === 'queued'
                 ? 'With the updated firmware, the logger checks for requests every minute. Keep this window open while it responds.'
                 : 'Keep this window open while the logger streams directly from its SD card.'}
@@ -214,19 +249,20 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
         </div>
         <div className="progress-copy">
           <span>
-            {!terminal && status !== 'ready' && <LoaderCircle className="spin" size={15} />} {downloadLabel[status]}
+            {!terminal && status !== 'ready' && <LoaderCircle className="spin" size={15} />}{' '}
+            {linkUnavailable || expiredLink ? 'Link unavailable' : downloadLabel[status]}
           </span>
           <strong>{progress}%</strong>
         </div>
         <div className="progress">
           <span style={{ width: `${progress}%` }} />
         </div>
-        {error && (
+        {(error || expiredLink) && (
           <div className="auth-error" role="alert">
-            {error}
+            {expiredLink ? 'The temporary download link has expired. Request a fresh copy.' : error}
           </div>
         )}
-        {status === 'ready' ? (
+        {ready ? (
           <>
             <a className={`button primary full ${url ? '' : 'disabled'}`} href={url || undefined} download>
               <Download size={17} /> {url ? 'Download CSV' : 'Preparing secure link...'}
@@ -236,8 +272,8 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
             </div>
           </>
         ) : terminal ? (
-          <button className="button secondary full" onClick={onClose}>
-            Close
+          <button className="button primary full" onClick={() => setAttempt((current) => current + 1)}>
+            Request fresh copy
           </button>
         ) : (
           <button className="button secondary full" onClick={() => void cancel()}>

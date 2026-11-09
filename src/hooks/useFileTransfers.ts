@@ -31,9 +31,15 @@ export function useFileTransfers() {
     }
   }, [])
 
-  const update = useCallback((key: string, patch: Partial<FileTransfer>) => {
+  const update = useCallback((key: string, patch: Partial<FileTransfer>, expectedRequestId?: string) => {
     if (!mounted.current) return
-    setTransfers((current) => current.map((transfer) => (transfer.key === key ? { ...transfer, ...patch } : transfer)))
+    setTransfers((current) =>
+      current.map((transfer) =>
+        transfer.key === key && (!expectedRequestId || transfer.requestId === expectedRequestId)
+          ? { ...transfer, ...patch }
+          : transfer,
+      ),
+    )
   }, [])
 
   const refresh = useCallback(
@@ -47,7 +53,7 @@ export function useFileTransfers() {
           .eq('id', requestId)
           .single()
         if (error || !row) {
-          update(key, { error: 'Transfer status is temporarily unavailable. Retrying…' })
+          update(key, { error: 'Transfer status is temporarily unavailable. Retrying…' }, requestId)
           return
         }
         const status = row.status as DownloadStatus
@@ -69,12 +75,16 @@ export function useFileTransfers() {
               patch.url = signed.signedUrl
               patch.expiresAt = row.expires_at
             }
-            if (signError) patch.error = 'Could not create the download link. Retrying…'
+            if (signError || !signed?.signedUrl) {
+              patch.error = 'Could not create the download link. Request a fresh copy.'
+              patch.expiresAt = row.expires_at
+              patch.url = ''
+            }
           }
         }
-        update(key, patch)
+        update(key, patch, requestId)
       } catch {
-        update(key, { error: 'Transfer status is temporarily unavailable. Retrying…' })
+        update(key, { error: 'Transfer status is temporarily unavailable. Retrying…' }, requestId)
       } finally {
         polling.current.delete(requestId)
       }
@@ -97,14 +107,18 @@ export function useFileTransfers() {
   }, [refresh, transfers])
 
   const requestFiles = useCallback(
-    (items: FleetFile[]) => {
+    (items: FleetFile[], refreshReady = false) => {
       if (!demoMode && !supabase) return
       const activeKeys = new Set(
         transfers
           .filter(
             (transfer) =>
               !['failed', 'expired'].includes(transfer.status) &&
-              !(transfer.status === 'ready' && new Date(transfer.expiresAt).getTime() <= Date.now()),
+              !(
+                transfer.status === 'ready' &&
+                ((transfer.expiresAt && new Date(transfer.expiresAt).getTime() <= Date.now()) ||
+                  (!transfer.url && transfer.error))
+              ),
           )
           .map((transfer) => transfer.key),
       )
@@ -151,7 +165,7 @@ export function useFileTransfers() {
             const client = supabase!
             const invoke = () =>
               client.functions.invoke('request-file-download', {
-                body: { device_id: item.device.id, filename: item.file.filename },
+                body: { device_id: item.device.id, filename: item.file.filename, refresh_ready: refreshReady },
               })
             let { data, error } = await invoke()
             if (error instanceof FunctionsHttpError && error.context.status === 401) {
@@ -205,9 +219,10 @@ export function useFileTransfers() {
           error
             ? { error: 'Could not cancel this transfer. Please retry.' }
             : { status: 'expired', error: 'Cancelled', url: '' },
+          requestId,
         )
       } catch {
-        update(key, { error: 'Could not cancel this transfer. Please retry.' })
+        update(key, { error: 'Could not cancel this transfer. Please retry.' }, requestId)
       }
     },
     [update],

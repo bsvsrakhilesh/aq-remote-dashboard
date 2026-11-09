@@ -33,12 +33,13 @@ export function FileTransferQueue({ transfers, onCancel, onDismiss, onRetry }: P
         {transfers.map((transfer) => {
           const expiredLink =
             transfer.status === 'ready' && !!transfer.expiresAt && new Date(transfer.expiresAt).getTime() <= now
-          const terminal = ['failed', 'expired'].includes(transfer.status) || expiredLink
+          const linkUnavailable = transfer.status === 'ready' && !transfer.url && !!transfer.error
+          const terminal = ['failed', 'expired'].includes(transfer.status) || expiredLink || linkUnavailable
           const label =
             transfer.status === 'requesting'
               ? 'Sending request'
-              : expiredLink
-                ? 'Download link expired'
+              : expiredLink || linkUnavailable
+                ? 'Download link unavailable'
                 : downloadLabel[transfer.status]
           return (
             <div className="transfer-item" key={transfer.key}>
@@ -75,7 +76,7 @@ export function FileTransferQueue({ transfers, onCancel, onDismiss, onRetry }: P
                 </p>
               )}
               <div className="transfer-actions">
-                {transfer.status === 'ready' && !expiredLink && transfer.url && (
+                {transfer.status === 'ready' && !terminal && transfer.url && (
                   <a className="button primary small" href={transfer.url} download={transfer.item.file.filename}>
                     <Download size={15} /> Download CSV
                   </a>

@@ -190,7 +190,7 @@ export function FilesPage() {
         transfers={transfers}
         onCancel={(key, requestId) => void cancel(key, requestId)}
         onDismiss={dismiss}
-        onRetry={(transfer) => requestFiles([transfer.item])}
+        onRetry={(transfer) => requestFiles([transfer.item], true)}
       />
     </div>
   )

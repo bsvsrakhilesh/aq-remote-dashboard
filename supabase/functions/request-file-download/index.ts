@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { shouldReuseDownload } from '../_shared/download-request.ts'
 import { corsHeaders, json } from '../_shared/http.ts'
 
 Deno.serve(async (request) => {
@@ -13,7 +14,11 @@ Deno.serve(async (request) => {
     data: { user },
   } = await db.auth.getUser()
   if (!user) return json(request, { ok: false, error: 'unauthorized' }, 401)
-  const body = (await request.json().catch(() => null)) as { device_id?: string; filename?: string } | null
+  const body = (await request.json().catch(() => null)) as {
+    device_id?: string
+    filename?: string
+    refresh_ready?: boolean
+  } | null
   if (
     !body?.device_id ||
     !body.filename ||
@@ -39,7 +44,7 @@ Deno.serve(async (request) => {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (active && (active.status !== 'ready' || (active.expires_at && new Date(active.expires_at) > new Date())))
+  if (shouldReuseDownload(active, body.refresh_ready === true))
     return json(request, { ok: true, request_id: active.id, status: active.status, deduplicated: true })
   const { data: download, error: requestError } = await db
     .from('download_requests')
