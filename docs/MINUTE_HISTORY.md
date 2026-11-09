@@ -6,6 +6,8 @@ Newly registered loggers start with automatic one-minute sync paused. Existing l
 
 The page has a device selector, IST date selector, import status, data-through timestamp, coverage counts, and a pause/resume control for signed-in users. Outdoor devices show PM1, PM2.5, PM10, temperature and humidity; indoor devices also show CO₂. The live readings page is unchanged.
 
+The **Download CSV** button exports the selected logger's imported minute averages for the selected IST day. It includes UTC and IST timestamps, every metric, total samples, and valid sample counts per metric. The export contains recorded minutes only; it does not fill gaps or download the original SD rows. Use Data files for the full-resolution SD CSV.
+
 ## How it works
 
 - A cloud coordinator checks pending work every fifteen minutes, but creates only one snapshot job per device/file per 12-hour slot. It invokes the CSV worker only when a transfer is ready.

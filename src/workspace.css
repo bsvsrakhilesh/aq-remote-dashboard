@@ -848,6 +848,12 @@ select {
   font-size: 0.8125rem;
   color: var(--muted);
 }
+.history-date-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 .history-device-picker select,
 .history-date-picker input {
   max-width: 100%;

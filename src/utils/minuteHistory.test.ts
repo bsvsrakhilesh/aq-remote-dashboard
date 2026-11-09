@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CsvMinuteAggregator, csvTimestamp } from '../../supabase/functions/_shared/csv-minute-history'
-import { closedSyncWindow, istDayStart, minuteTimeline } from './minuteHistory'
+import { closedSyncWindow, istDayStart, minuteHistoryCsvRows, minuteTimeline } from './minuteHistory'
+import { makeCsv } from './research'
 
 const header = 'Date,Time,MC1.0,MC2.5,MC10.0,Temp_C,Humidity_RH_percent\r\n'
 const start = istDayStart('2026-09-25')
@@ -63,5 +64,40 @@ describe('twice-daily CSV history', () => {
     expect(timeline.every((row) => row.pm1 === null && row.co2 === null)).toBe(true)
     expect(minuteTimeline([], '2026-09-25', start + 11 * 3600000)).toEqual([])
     expect(minuteTimeline([], '2026-09-24', start)).toHaveLength(1440)
+  })
+  it('exports the selected IST minute with blank missing measurements and sample counts', () => {
+    const rows = minuteHistoryCsvRows([
+      {
+        timestamp: new Date(start).toISOString(),
+        pm1: 15,
+        pm25: 20,
+        pm10: null,
+        temperature: 26,
+        rh: 50,
+        co2: null,
+        sampleCount: 2,
+        validCounts: [2, 1, 0, 2, 1, 0],
+      },
+    ])
+    expect(rows[1]).toEqual([
+      '2026-09-24T18:30:00.000Z',
+      '2026-09-25T00:00:00+05:30',
+      15,
+      20,
+      null,
+      26,
+      50,
+      null,
+      2,
+      2,
+      1,
+      0,
+      2,
+      1,
+      0,
+    ])
+    const csv = makeCsv(rows)
+    expect(csv).toContain('"timestamp_ist"')
+    expect(csv).not.toContain('"null"')
   })
 })

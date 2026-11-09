@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarDays, CloudDownload, Pause, Play, RefreshCw } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CloudDownload, Download, Pause, Play, RefreshCw } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useDevices } from '../hooks/useData'
@@ -6,7 +6,8 @@ import { useMinuteHistory } from '../hooks/useMinuteHistory'
 import { TelemetryChart } from '../components/TelemetryChart'
 import { readOnlyMode } from '../services/supabase'
 import { formatFileSize, formatRelative } from '../utils'
-import { istDate, minuteTimeline } from '../utils/minuteHistory'
+import { istDate, minuteHistoryCsvRows, minuteTimeline } from '../utils/minuteHistory'
+import { downloadCsv } from '../utils/research'
 
 const jobLabels = {
   queued: 'Download scheduled',
@@ -151,20 +152,34 @@ export function MinuteHistoryPage() {
       <section className="section-head history-date-head">
         <div>
           <h2>Minute averages</h2>
-          <p>Times shown in IST · each point averages the valid CSV samples in that minute.</p>
+          <p>Times shown in IST · each point averages valid CSV samples. Download contains imported minutes only.</p>
         </div>
-        <label className="history-date-picker">
-          <CalendarDays size={17} /> Day (IST)
-          <input
-            aria-label="History date"
-            type="date"
-            value={date}
-            max={istDate()}
-            onChange={(e) => {
-              if (e.target.value) setDate(e.target.value)
-            }}
-          />
-        </label>
+        <div className="history-date-actions">
+          <label className="history-date-picker">
+            <CalendarDays size={17} /> Day (IST)
+            <input
+              aria-label="History date"
+              type="date"
+              value={date}
+              max={istDate()}
+              onChange={(e) => {
+                if (e.target.value) setDate(e.target.value)
+              }}
+            />
+          </label>
+          <button
+            className="button secondary"
+            disabled={history.loading || !history.rows.length}
+            onClick={() =>
+              downloadCsv(
+                `${device.code.replace(/[^a-zA-Z0-9_-]/g, '_')}_one-minute_history_${date}.csv`,
+                minuteHistoryCsvRows(history.rows),
+              )
+            }
+          >
+            <Download size={16} /> Download CSV
+          </button>
+        </div>
       </section>
       <div className="history-coverage">
         <span>
