@@ -1,6 +1,6 @@
 # Registering the logger fleet
 
-The dashboard already reads each logger from `public.devices`; no device list is hard-coded in the frontend. The database records the sensor pair in `installed_sensors`. The planned fleet has six SPS30 + SHT3x loggers and four SPS30 + SCD30 loggers, but the schema does not enforce these counts so future additions remain possible.
+The dashboard already reads each logger from `public.devices`; no device list is hard-coded in the frontend. The database records the sensor pair in `installed_sensors`. The initial fleet plan had six SPS30 + SHT3x loggers and four SPS30 + SCD30 loggers. The separately wired indoor 05 and 06 sketches extend the SCD30 fleet; the schema does not enforce either count.
 
 ## One-time database setup
 
@@ -54,6 +54,8 @@ from public.devices;
 The production dashboard shows new devices automatically as soon as their rows exist. `last_seen` fills after the device sends its first successful heartbeat. The helper changes only database provisioning; it does not flash devices or generate firmware files for the remaining units.
 
 ## Additional indoor loggers
+
+For the separately wired `aq_indoor05` and `aq_indoor06` sketches, pin mapping and provisioning steps are in [their setup guide](AQ_INDOOR05_06_SETUP.md). These new units use an external 4-pin OLED and a separate microSD module with CS on D7; they do not use the XIAO expansion board. Both IDs are registered in the linked Supabase project as of 2026-11-10, with keys in their matching git-ignored private firmware configs. Do not register them again in that project.
 
 The SPS30 + SCD30 sketches for `aq_indoor02`, `aq_indoor03`, and `aq_indoor04` are in matching folders under `firmware/`. Each sketch uses its own device code, CSV filename prefix, and mDNS hostname (`aq-indoor02.local`, `aq-indoor03.local`, or `aq-indoor04.local`). They share the one-minute command check and 15-minute telemetry cadence of `aq_indoor01`.
 
