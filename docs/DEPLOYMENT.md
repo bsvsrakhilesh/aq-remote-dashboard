@@ -12,7 +12,7 @@
 
 Migrations `202609250001` through `202609250006` add the research workspace. The database schedules CSV collection, alert evaluation, and opt-in retention. The latest migration runs the CSV coordinator every fifteen minutes; it queues normal snapshots for the midnight and noon IST cutoffs. Before deploying to a different Supabase project, change the project URL in `202609250002_csv_history_schedule.sql`. `process-csv-history` uses a random Vault token created by the migration. `import-history` requires a signed-in researcher and accepts verified dated CSV files in small chunks. These functions have `verify_jwt=false` in `supabase/config.toml` because each performs its own authentication check.
 
-Migration `202610120001_fifteen_minute_cadence.sql` aligns reporting coverage and alert evaluation with the 15-minute telemetry cadence. Apply all migrations and deploy `device-check-in` and `request-file-download`, then flash each active logger with firmware 1.2.6 for one-minute command checks. Website and database changes alone do not change device traffic.
+Migration `202610120001_fifteen_minute_cadence.sql` aligns reporting coverage and alert evaluation with the 15-minute telemetry cadence. Apply all migrations and deploy `device-check-in` and `request-file-download`, then flash each active logger with the 1.2.5 cadence for fifteen-minute combined check-ins. Website and database changes alone do not change device traffic.
 
 ### Device ID in firmware
 

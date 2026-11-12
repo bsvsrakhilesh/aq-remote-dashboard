@@ -57,7 +57,7 @@ The production dashboard shows new devices automatically as soon as their rows e
 
 For the separately wired `aq_indoor05` and `aq_indoor06` sketches, pin mapping and provisioning steps are in [their setup guide](AQ_INDOOR05_06_SETUP.md). These new units use an external 4-pin OLED and a separate microSD module with CS on D7; they do not use the XIAO expansion board. Both IDs are registered in the linked Supabase project as of 2026-11-10, with keys in their matching git-ignored private firmware configs. Do not register them again in that project.
 
-The SPS30 + SCD30 sketches for `aq_indoor02`, `aq_indoor03`, and `aq_indoor04` are in matching folders under `firmware/`. Each sketch uses its own device code, CSV filename prefix, and mDNS hostname (`aq-indoor02.local`, `aq-indoor03.local`, or `aq-indoor04.local`). They share the one-minute command check and 15-minute telemetry cadence of `aq_indoor01`.
+The SPS30 + SCD30 sketches for `aq_indoor02`, `aq_indoor03`, and `aq_indoor04` are in matching folders under `firmware/`. Each sketch uses its own device code, CSV filename prefix, and mDNS hostname (`aq-indoor02.local`, `aq-indoor03.local`, or `aq-indoor04.local`). They share the fifteen-minute combined check-in cadence of `aq_indoor01`.
 
 These three devices are already registered in this repository's linked Supabase project. Their unique keys are stored in the matching git-ignored `private_config.h` files in this workspace; do not register them again or replace their keys. The linked project has CO₂ enabled for all three, and automatic one-minute history is paused.
 

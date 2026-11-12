@@ -1,6 +1,6 @@
 # `aq_indoor05` and `aq_indoor06` setup
 
-These two XIAO ESP32S3 sketches adapt the existing indoor SPS30 + SCD30 cloud logger to the direct wiring in `PM_CO2_4pinOLED.ino`. They retain the indoor logger's weekly SD files, local diagnostic page, Wi-Fi provisioning, IITD enterprise Wi-Fi support, one-minute cloud command/health checks, and fifteen-minute telemetry. The original sketch remains unchanged. Neither unit uses the XIAO expansion board or its buzzer.
+These two XIAO ESP32S3 sketches adapt the existing indoor SPS30 + SCD30 cloud logger to the direct wiring in `PM_CO2_4pinOLED.ino`. They retain the indoor logger's weekly SD files, local diagnostic page, Wi-Fi provisioning, IITD enterprise Wi-Fi support, and fifteen-minute combined cloud check-ins. The original sketch remains unchanged. Neither unit uses the XIAO expansion board or its buzzer.
 
 | Connection                                            | XIAO pin / setting |
 | ----------------------------------------------------- | ------------------ |

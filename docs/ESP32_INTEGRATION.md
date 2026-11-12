@@ -83,11 +83,11 @@ The dashboard shows a CO₂ value, a ppm history chart with all four time ranges
 
 ### Background cloud task
 
-The updated firmware calls `device-check-in` every minute while connected. Each call sends health and retrieves one queued command; telemetry is included only every fifteen minutes. A file-list or download request normally waits less than one minute before the logger receives it, unless the logger is offline or already uploading a file. One continuously connected logger therefore makes 1,440 regular Edge Function invocations per day. Three make 129,600 in a 30-day month, plus transfer requests, retries, and other functions. Each logger streams one requested file at a time; requests for different loggers can run together. A second file from one logger remains queued and is picked up after the first upload completes; queued commands expire after six hours.
+The logger firmware calls `device-check-in` every fifteen minutes while connected. Each call sends health and telemetry and retrieves one queued command. A file-list or download request normally waits less than fifteen minutes before the logger receives it, unless the logger is offline or already uploading a file. One continuously connected logger therefore makes 96 regular Edge Function invocations per day. Three make 8,640 in a 30-day month, plus transfer requests, retries, and other functions. Each logger streams one requested file at a time; requests for different loggers can run together. A second file from one logger remains queued and is picked up after the first upload completes; queued commands expire after six hours.
 
 ```cpp
 void cloudTask() {
-  if (minutePollDue()) sendHealthAndGetCommand(telemetryDue());
+  if (fifteenMinuteCheckInDue()) sendHealthAndGetCommand(true);
 }
 
 void handleCommand() {

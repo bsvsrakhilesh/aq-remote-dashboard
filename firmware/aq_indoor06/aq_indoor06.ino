@@ -80,7 +80,7 @@ const char* DEVICE_HOSTNAME = "aq_indoor06";
 const char* NETWORK_HOSTNAME = "aq-indoor06";
 
 // Firmware identifier shown in the remote dashboard heartbeat.
-const char* FIRMWARE_VERSION = "pm-co2-iitd-cloud-1.2.6";
+const char* FIRMWARE_VERSION = "pm-co2-iitd-cloud-1.2.5";
 
 // -----------------------------------------------------------------------------
 // IIT Delhi WPA2-Enterprise / PEAP configuration
@@ -330,7 +330,7 @@ unsigned long lastWifiScanAttemptMs = 0;
  * Remote cloud dashboard state
  ***************************************************************/
 const unsigned long CLOUD_CHECKIN_INTERVAL_MS = 900000UL; // 15 minutes
-const unsigned long CLOUD_COMMAND_POLL_INTERVAL_MS = 60000UL; // 1 minute
+const unsigned long CLOUD_COMMAND_POLL_INTERVAL_MS = CLOUD_CHECKIN_INTERVAL_MS; // 15 minutes
 const unsigned long CLOUD_RECENT_SUCCESS_WINDOW_MS = CLOUD_CHECKIN_INTERVAL_MS + 120000UL;
 const uint32_t CLOUD_HTTP_TIMEOUT_MS = 10000UL;
 
@@ -3210,7 +3210,7 @@ void serviceCloudDashboard() {
   // streaming, so progress updates cannot compete with command polling.
   if (remoteUploadState != REMOTE_UPLOAD_IDLE) return;
 
-  // Poll commands each minute; include telemetry only every 15 minutes.
+  // Poll commands and send telemetry every 15 minutes.
   bool telemetryDue = lastCloudCheckInMs == 0 ||
                       ms - lastCloudCheckInMs >= CLOUD_CHECKIN_INTERVAL_MS;
   bool commandDue = lastCloudCommandPollMs == 0 ||
