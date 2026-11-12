@@ -44,11 +44,15 @@ export function parseCheckIn(
 
   let telemetry: TelemetryPayload | null = null
   if (hasTrustedTime) {
-    if (!input.telemetry || typeof input.telemetry !== 'object' || Array.isArray(input.telemetry))
-      return { error: 'invalid_telemetry' }
-    const sample = parseTelemetry({ ...input.telemetry, timestamp: input.timestamp })
-    if (sample.error !== undefined) return { error: sample.error }
-    telemetry = sample.data
+    // Command polls carry heartbeat data with an explicit null telemetry value.
+    // Only scheduled measurement check-ins include a telemetry object.
+    if (input.telemetry !== null) {
+      if (!input.telemetry || typeof input.telemetry !== 'object' || Array.isArray(input.telemetry))
+        return { error: 'invalid_telemetry' }
+      const sample = parseTelemetry({ ...input.telemetry, timestamp: input.timestamp })
+      if (sample.error !== undefined) return { error: sample.error }
+      telemetry = sample.data
+    }
   } else if (input.telemetry != null) {
     return { error: 'invalid_telemetry_without_timestamp' }
   }

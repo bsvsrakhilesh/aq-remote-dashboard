@@ -2,13 +2,13 @@
 
 These two XIAO ESP32S3 sketches adapt the existing indoor SPS30 + SCD30 cloud logger to the direct wiring in `PM_CO2_4pinOLED.ino`. They retain the indoor logger's weekly SD files, local diagnostic page, Wi-Fi provisioning, IITD enterprise Wi-Fi support, one-minute cloud command/health checks, and fifteen-minute telemetry. The original sketch remains unchanged. Neither unit uses the XIAO expansion board or its buzzer.
 
-| Connection | XIAO pin / setting |
-| --- | --- |
-| External 4-pin SSD1306 OLED, SCD30, SPS30, DS3231 SDA | D4 |
-| External 4-pin SSD1306 OLED, SCD30, SPS30, DS3231 SCL | D5 |
-| OLED I2C address | `0x3C` |
-| Separate microSD module CS | D7 |
-| Separate microSD module MOSI / MISO / SCK | D10 / D9 / D8 |
+| Connection                                            | XIAO pin / setting |
+| ----------------------------------------------------- | ------------------ |
+| External 4-pin SSD1306 OLED, SCD30, SPS30, DS3231 SDA | D4                 |
+| External 4-pin SSD1306 OLED, SCD30, SPS30, DS3231 SCL | D5                 |
+| OLED I2C address                                      | `0x3C`             |
+| Separate microSD module CS                            | D7                 |
+| Separate microSD module MOSI / MISO / SCK             | D10 / D9 / D8      |
 
 Supply each module using its own rated voltage and a common logic ground. Check the external microSD module's logic-level requirements before connecting it to the 3.3 V XIAO pins. The new sketches do not assign D2 or D3 to an expansion board.
 

@@ -17,16 +17,16 @@ This folder contains **new** Arduino sketches for `aq_indoor01`, `aq_indoor02`, 
 
 The controller uses the arithmetic mean of **all currently valid** logger readings. A logger is valid until its SCD30 sample is 60 seconds old, including the time since the controller received its packet. One or two missing loggers do not stop control; the mean uses the remaining logger(s). With no valid readings, the controller switches the relay **off**. Invalid, stale, duplicate, incorrectly signed, and packets from an unexpected MAC after pairing are ignored.
 
-| Condition                                                | Action                                               |
-| -------------------------------------------------------- | ---------------------------------------------------- |
-| Mean strictly above 1000 ppm continuously for 30 seconds | Switch fan on                                        |
-| Mean strictly below 800 ppm                              | Switch fan off immediately                           |
-| Mean 800–1000 ppm                                        | Keep current fan state; reset an unfinished on timer |
-| All three readings absent/stale                          | Switch fan off and reset on timer                    |
+| Condition                                               | Action                                               |
+| ------------------------------------------------------- | ---------------------------------------------------- |
+| Mean strictly above 700 ppm continuously for 30 seconds | Switch fan on                                        |
+| Mean strictly below 700 ppm                             | Switch fan off immediately                           |
+| Mean exactly 700 ppm                                    | Keep current fan state; reset an unfinished on timer |
+| All three readings absent/stale                         | Switch fan off and reset on timer                    |
 
 After data returns, the full 30-second high-CO₂ hold is required again. At boot the relay driver is off. The code uses `millis()` and does not depend on NTP, a router, cloud service, or Internet. The loggers keep their previous Wi-Fi features for dashboard use.
 
-If the controller receives a mean of **1000 ppm or less** during the 30-second ON wait, it resets that wait; the next mean above 1000 ppm starts a fresh 30 seconds. A real 2–3 second dip may go unseen because the controller visits multiple ESP-NOW channels and uses the latest received samples. Once the fan is on, a mean between 800 and 1000 ppm leaves it on; a mean strictly below 800 ppm switches it off.
+If the controller receives a mean of **700 ppm or less** during the 30-second ON wait, it resets that wait; the next mean above 700 ppm starts a fresh 30 seconds. A real 2–3 second dip may go unseen because the controller visits multiple ESP-NOW channels and uses the latest received samples. Once the fan is on, a mean of exactly 700 ppm leaves it on; a mean strictly below 700 ppm switches it off.
 
 ESP-NOW and Wi-Fi share the XIAO's one 2.4 GHz radio. A connected logger sends on its access point's channel; when offline it sends on its current radio channel. The controller has no Wi-Fi connection and cycles through channels permitted by its configured India radio domain, dwelling one second on each. This allows loggers connected to different AP channels to be heard over time, but reception is not guaranteed on every broadcast. The 60-second expiry bounds how long an old reading can affect control. Test channel coverage and packet ages at the actual installation. Keep the SCD30 measurement interval at or below 15 seconds for this version; the default is two seconds. Wi-Fi scans and roaming may interrupt a few broadcasts.
 
@@ -36,7 +36,7 @@ ESP-NOW and Wi-Fi share the XIAO's one 2.4 GHz radio. A connected logger sends o
 2. Upload the three new logger sketches to their corresponding physical loggers. Confirm each prints `Fan ESP-NOW ready, station MAC:` in Serial Monitor and still logs to SD and checks in to the cloud as before.
 3. Open and upload `fan_controller/fan_controller.ino` to the controller XIAO. It uses the same generated ESP-NOW key in its private config. The controller prints its channel range and pairs each logger ID to the **first correctly signed** station MAC it sees, then stores that MAC in NVS. The controller rejects a different MAC claiming the same logger ID. Flash the intended three loggers before commissioning the controller near other test devices using the same key.
 4. With mains **disconnected**, verify the relay board's input polarity, input current, and motor-contact rating. The controller uses **D10/GPIO9**, the header pin directly below 3V3, to drive the relay `IN` terminal through an NPN transistor. The supplied sketch and [`fan_wiring.svg`](fan_wiring.svg) assume an **active-low** `IN` pin. The NPN keeps the XIAO's 3.3 V pin away from a possible 5 V pull-up on the relay module's input. A 4.7 kΩ base resistor and 100 kΩ base-to-ground resistor provide drive and a reset-off state. If the board has a different trigger circuit, adapt both driver and output polarity before connecting the fan. The JQC-3FC marking on the relay itself does **not** establish the module's 3.3 V logic compatibility or its motor duty rating.
-5. Test with a disconnected low-voltage load or indicator first. Confirm serial status with zero, one, two, and three loggers; readings crossing both thresholds; a logger power loss; all logger power loss; and controller reset. Only then have a qualified electrician verify and connect the 230 V side.
+5. Test with a disconnected low-voltage load or indicator first. Confirm serial status with zero, one, two, and three loggers; readings crossing the threshold; a logger power loss; all logger power loss; and controller reset. Only then have a qualified electrician verify and connect the 230 V side.
 
 The controller does not have a cloud endpoint or Wi-Fi credentials; only the logger cloud behavior is retained. Replacing a logger with a different ESP32 station MAC requires clearing the **controller's** saved `fanPeers` NVS namespace and pairing again. Erasing the controller's flash/NVS using the Arduino upload tool is one way to do that; it does not alter logger data. Keep the shared key secret. A new key must be installed on all four devices together.
 
@@ -44,7 +44,7 @@ The controller does not have a cloud endpoint or Wi-Fi credentials; only the log
 
 The controller advertises a read-only Bluetooth Low Energy device named **AQ-FAN**. It sends a 17-byte status notification every two seconds while a browser is connected. This does not join a Wi-Fi network or contact Supabase. The dashboard is a separate page on **your computer**, not on AQ Observatory. It makes **zero Supabase requests** and does not store measurements. The displayed ON/OFF value is the **relay command**; the controller has no contact or motor rotation feedback. USB serial output remains available for bench diagnostics but is not used by the dashboard.
 
-1. Upload the updated `fan_controller.ino`. The three logger sketches do not need another upload for this dashboard change.
+1. Upload the updated `fan_controller.ino`. The three logger sketches do not need another upload for this dashboard or threshold change.
 2. Put the computer within Bluetooth range of the powered controller and enable the computer's Bluetooth adapter. No cable between them is needed.
 3. From `controller_local_dashboard`, double-click `start_dashboard.bat`, or run `python -m http.server 8765 --bind 127.0.0.1` in that folder. This only serves the page on the computer; it does not connect to the controller.
 4. Open **http://localhost:8765** in desktop Chrome or Edge. Click **Show local dashboard** and select **AQ-FAN** in the Bluetooth picker. The fan command, spatial mean, three logger readings, freshness, and current ESP-NOW channel update about every two seconds.

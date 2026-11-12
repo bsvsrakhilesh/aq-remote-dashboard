@@ -25,3 +25,9 @@ Enable both gates together. In trusted SQL run `update public.dashboard_settings
 ## GitHub Pages
 
 Set repository Actions variables `VITE_SUPABASE_URL`, `VITE_PUBLIC_READ_ONLY=false`, `VITE_DEMO_MODE=false`, and Actions secret `VITE_SUPABASE_ANON_KEY`. In Settings → Pages select **GitHub Actions**. Push `main`; the workflow tests, builds, and publishes. The expected URL is `https://<github-username>.github.io/aq-remote-dashboard/`.
+
+## Edge Functions in GitHub Actions
+
+Set the repository Actions secret `SUPABASE_ACCESS_TOKEN` to a Supabase personal access token with access to the production project. Set the Actions variable `SUPABASE_PROJECT_REF` to that project's ID (the subdomain in `https://<project-ref>.supabase.co`). Keep the token in a secret, never in a Vite variable or source file.
+
+Changes under `supabase/functions/` or `supabase/config.toml` on `main` trigger the Edge Functions workflow. It runs the tests, lint and formatting checks, then deploys all tracked Edge Functions with the lockfile-pinned Supabase CLI. This includes shared code changes such as `device-check-in`'s parser. The workflow can also be run manually from Actions. It does not apply database migrations; use the Supabase instructions above when migrations change. Firmware changes require flashing the physical devices.

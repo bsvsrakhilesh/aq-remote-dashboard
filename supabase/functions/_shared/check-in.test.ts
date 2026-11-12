@@ -38,6 +38,13 @@ describe('combined device check-in', () => {
     expect(result.data?.telemetry).toBeNull()
   })
 
+  it('accepts command-only check-ins with a trusted timestamp and explicit null telemetry', () => {
+    const result = parseCheckIn({ ...validCheckIn, telemetry: null }, receivedAt)
+    expect(result.error).toBeUndefined()
+    expect(result.data?.heartbeat.timestamp).toBe(validCheckIn.timestamp)
+    expect(result.data?.telemetry).toBeNull()
+  })
+
   it('rejects a missing telemetry payload and malformed health', () => {
     expect(parseCheckIn({ ...validCheckIn, telemetry: undefined }, receivedAt).error).toBe('invalid_telemetry')
     expect(parseCheckIn({ ...validCheckIn, rssi: -127 }, receivedAt).error).toBe('invalid_heartbeat')

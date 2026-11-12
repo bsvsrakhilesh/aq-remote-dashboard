@@ -30,8 +30,8 @@
 static_assert(FAN_RELAY_DIRECT_ACTIVE_LOW == 0 || FAN_RELAY_DIRECT_ACTIVE_LOW == 1,
               "FAN_RELAY_DIRECT_ACTIVE_LOW must be 0 or 1");
 constexpr int RELAY_DRIVER_PIN = D10;
-constexpr uint32_t ON_THRESHOLD_PPM = 1000;
-constexpr uint32_t OFF_THRESHOLD_PPM = 800;
+constexpr uint32_t ON_THRESHOLD_PPM = 700;
+constexpr uint32_t OFF_THRESHOLD_PPM = 700;
 constexpr uint32_t ON_HOLD_MS = 30000;
 constexpr uint32_t READING_TTL_MS = 60000;
 constexpr uint32_t CHANNEL_DWELL_MS = 1000;
