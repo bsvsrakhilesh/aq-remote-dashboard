@@ -55,6 +55,15 @@ select {
   flex-wrap: wrap;
   align-items: center;
 }
+.fleet-refresh-all {
+  min-height: 42px;
+  white-space: nowrap;
+}
+.fleet-catalog-notice {
+  margin: 0 0 14px;
+  padding: 10px 13px;
+  font-size: 0.8125rem;
+}
 .page-heading {
   gap: 24px;
 }
@@ -607,6 +616,9 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     margin-top: 0;
+  }
+  .fleet-refresh-all {
+    grid-column: 1 / -1;
   }
   .search {
     grid-column: 1 / -1;

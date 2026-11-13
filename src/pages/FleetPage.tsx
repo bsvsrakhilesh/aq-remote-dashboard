@@ -1,9 +1,21 @@
-import { ArrowRight, ArrowUpRight, Clock3, Filter, RadioTower, Search, SlidersHorizontal, Wifi } from 'lucide-react'
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Clock3,
+  Filter,
+  RadioTower,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  Wifi,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDevices, useTodayTelemetryCount } from '../hooks/useData'
 import { usePreferences } from '../hooks/usePreferences'
+import { demoMode, readOnlyMode } from '../services/supabase'
+import { queueFileListCommand } from '../services/fileCatalog'
 import { formatRelative, getDeviceState, rssiQuality } from '../utils'
 
 type FilterKey = 'all' | 'online' | 'attention'
@@ -20,6 +32,45 @@ export function FleetPage() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FilterKey>('all')
   const [sort, setSort] = useState<SortKey>('device')
+  const [queueingLists, setQueueingLists] = useState(false)
+  const [catalogNotice, setCatalogNotice] = useState<{ text: string; error: boolean } | null>(null)
+  const refreshAllLists = async () => {
+    if (queueingLists || !devices.length) return
+    setQueueingLists(true)
+    setCatalogNotice(null)
+    if (demoMode) {
+      setCatalogNotice({ text: `Demo only: no commands were sent to the ${devices.length} loggers.`, error: false })
+      setQueueingLists(false)
+      return
+    }
+
+    // Use the full fleet, including filtered and offline loggers. Limit concurrent requests.
+    const failures: { code: string; reason: string }[] = []
+    for (let index = 0; index < devices.length; index += 4) {
+      await Promise.all(
+        devices.slice(index, index + 4).map(async (device) => {
+          try {
+            await queueFileListCommand(device.id)
+          } catch (error) {
+            failures.push({ code: device.code, reason: error instanceof Error ? error.message : 'Request failed.' })
+          }
+        }),
+      )
+    }
+    const queued = devices.length - failures.length
+    setCatalogNotice(
+      failures.length
+        ? {
+            text: `${queued} of ${devices.length} file-list commands queued. Failed: ${failures.map(({ code }) => code).join(', ')}. ${failures[0].reason}`,
+            error: true,
+          }
+        : {
+            text: `File-list commands queued for all ${devices.length} loggers. Catalogs update after each logger checks in; online loggers usually respond within 15 minutes.`,
+            error: false,
+          },
+    )
+    setQueueingLists(false)
+  }
   const filtered = useMemo(
     () =>
       devices
@@ -149,8 +200,27 @@ export function FleetPage() {
               <option value="pm25">Highest PM2.5</option>
             </select>
           </div>
+          {!readOnlyMode && (
+            <button
+              className="button secondary fleet-refresh-all"
+              onClick={() => void refreshAllLists()}
+              disabled={queueingLists || loading || !devices.length}
+              title="Request an SD file list from every registered logger"
+            >
+              <RefreshCw className={queueingLists ? 'spin' : ''} size={15} />
+              {queueingLists ? 'Sending...' : 'Refresh all lists'}
+            </button>
+          )}
         </div>
       </section>
+      {catalogNotice && (
+        <div
+          className={catalogNotice.error ? 'error-banner' : 'inline-notice fleet-catalog-notice'}
+          role={catalogNotice.error ? 'alert' : 'status'}
+        >
+          {catalogNotice.text}
+        </div>
+      )}
       {loading && !devices.length ? (
         <section className="device-grid" aria-label="Loading devices">
           {Array.from({ length: 4 }, (_, index) => (
