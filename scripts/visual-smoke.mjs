@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises'
 
 const executablePath = process.env.BROWSER_PATH ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
 const baseUrl = process.env.SMOKE_URL ?? 'http://127.0.0.1:5173'
+const only = process.env.SMOKE_ONLY ?? ''
 const outputDir = '.smoke'
 await mkdir(outputDir, { recursive: true })
 const browser = await chromium.launch({ executablePath, headless: true })
@@ -24,15 +25,26 @@ for (const theme of ['light', 'dark']) {
         viewport: { width, height: width > 800 ? 1000 : 844 },
       })
     }
+    if (width === 390)
+      scenarios.push({
+        name: `${theme}-390-empty-csv`,
+        view: 'empty-csv',
+        path: '/#/device/AQ02',
+        theme,
+        viewport: { width, height: 844 },
+      })
   }
 }
 
 for (const scenario of scenarios) {
+  if (only && !scenario.name.includes(only)) continue
   const page = await browser.newPage({ viewport: scenario.viewport, deviceScaleFactor: 1 })
   page.setDefaultTimeout(10000)
   await page.addInitScript((theme) => localStorage.setItem('theme', theme), scenario.theme)
   page.on('pageerror', (error) => failures.push(`${scenario.name}: ${error.message}`))
-  await page.goto(`${baseUrl}${scenario.path}`, { waitUntil: 'networkidle' })
+  await page.goto(`${baseUrl}${scenario.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+  await page.locator('.page').waitFor()
+  await page.evaluate(() => document.fonts.ready)
   const dimensions = await page.evaluate(() => ({
     body: document.body.scrollWidth,
     root: document.documentElement.scrollWidth,
@@ -43,10 +55,15 @@ for (const scenario of scenarios) {
   }
   try {
     if (scenario.view === 'fleet') {
+      await page.getByText('Active CSV · 0 B').first().waitFor()
       const search = page.getByRole('textbox', { name: 'Search loggers' })
       await search.fill('no-such-logger')
       await page.getByText('No loggers found').waitFor()
       await search.fill('')
+      await page.getByRole('combobox', { name: 'Filter devices' }).selectOption('attention')
+      await page.getByText('2 devices shown').waitFor()
+      if ((await page.locator('.device-card').count()) !== 2) throw new Error('Attention filter missed a logger')
+      await page.getByRole('combobox', { name: 'Filter devices' }).selectOption('all')
     }
     if (scenario.view === 'device') {
       for (const period of ['6h', '7d', '30d', '24h']) {
@@ -76,17 +93,28 @@ for (const scenario of scenarios) {
       await page.keyboard.press('Escape')
       await page.getByRole('dialog').waitFor({ state: 'hidden' })
     }
+    if (scenario.view === 'empty-csv') {
+      await page.getByText('Cloud reports 0 B · verify writes').waitFor()
+      await page.getByText('The logger reports an empty active CSV.').waitFor()
+      await page.getByRole('button', { name: 'Review storage' }).click()
+      if ((await page.evaluate(() => window.location.hash)) !== '#/device/AQ02')
+        throw new Error('Storage shortcut changed the device route')
+    }
     if (scenario.view === 'files') {
       await page.getByRole('textbox', { name: 'Search files' }).fill('2026-09-22')
-      await page.getByRole('button', { name: 'Request' }).first().click()
-      await page.getByRole('dialog').waitFor()
-      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Request', exact: true }).first().click()
+      await page.getByRole('region', { name: 'File transfers' }).waitFor()
     }
     if (scenario.view === 'settings') {
       await page.getByRole('button', { name: 'Save preferences' }).click()
       await page.getByText('Preferences saved on this browser.').waitFor()
     }
     if (scenario.viewport.width <= 800) {
+      const notifications = page.getByRole('button', { name: 'Notifications' })
+      if (!(await notifications.isVisible())) throw new Error('Mobile notifications are hidden')
+      await notifications.click()
+      await page.getByText('Attention inbox').waitFor()
+      await notifications.click()
       await page.getByRole('button', { name: 'Open menu' }).click()
       await page.getByRole('link', { name: 'Overview', exact: true }).waitFor({ state: 'visible' })
       await page.keyboard.press('Escape')
@@ -111,5 +139,5 @@ if (failures.length) {
   process.exit(1)
 }
 console.log(
-  `Visual checks passed: ${scenarios.length} layouts, both themes, 320–1440px, search, periods, dialogs, keyboard focus, mobile navigation, and preferences`,
+  `Visual checks passed: ${only ? scenarios.filter((scenario) => scenario.name.includes(only)).length : scenarios.length} scenarios${only ? ` matching ${only}` : ' across both themes and 320–1440px widths'}.`,
 )

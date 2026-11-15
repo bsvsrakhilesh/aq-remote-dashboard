@@ -39,6 +39,7 @@ The app uses `HashRouter`, so deep links work on GitHub Pages. The Vite build au
 - [Security model](docs/SECURITY.md)
 - [One-minute CSV history](docs/MINUTE_HISTORY.md)
 - [Research workspace features and verification](docs/WORKSPACE_UPGRADE.md)
+- [Dashboard experience plan](docs/DASHBOARD_EXPERIENCE_PLAN.md)
 
 Apply migrations with `supabase db push`; they create constrained tables, indexes, RLS policies, a private temporary bucket, and device-secret verification. Deploy the Edge Functions using the exact command in the deployment guide.
 

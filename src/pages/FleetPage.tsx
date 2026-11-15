@@ -1,6 +1,8 @@
 import {
+  AlertTriangle,
   ArrowRight,
   ArrowUpRight,
+  CheckCircle2,
   Clock3,
   Filter,
   RadioTower,
@@ -17,15 +19,19 @@ import type { FleetCatalogRefreshContext } from '../hooks/useFleetCatalogRefresh
 import { usePreferences } from '../hooks/usePreferences'
 import { demoMode, readOnlyMode } from '../services/supabase'
 import { queueFileListCommand } from '../services/fileCatalog'
-import { formatRelative, getDeviceState, rssiQuality } from '../utils'
+import { formatRelative, rssiQuality } from '../utils'
+import { assessDevice, assessmentRank } from '../utils/deviceInsights'
 import type { FleetCatalogItem } from '../utils/fileCatalogBatch'
 
 type FilterKey = 'all' | 'online' | 'attention'
-type SortKey = 'device' | 'last_seen' | 'pm25'
+type SortKey = 'attention' | 'device' | 'last_seen' | 'pm25'
+
+const checkedTime = (value: number) =>
+  `${new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(value)} IST`
 
 export function FleetPage() {
   const catalogRefresh = useOutletContext<FleetCatalogRefreshContext>()
-  const { data: devices, loading, error, reload } = useDevices()
+  const { data: devices, loading, error, reload, checkedAt } = useDevices()
   const telemetryToday = useTodayTelemetryCount()
   const { preferences } = usePreferences()
   const thresholds = useMemo(
@@ -34,7 +40,7 @@ export function FleetPage() {
   )
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FilterKey>('all')
-  const [sort, setSort] = useState<SortKey>('device')
+  const [sort, setSort] = useState<SortKey>('attention')
   const [queueingLists, setQueueingLists] = useState(false)
   const [catalogNotice, setCatalogNotice] = useState<{ text: string; error: boolean } | null>(null)
   const refreshAllLists = async () => {
@@ -77,26 +83,34 @@ export function FleetPage() {
     catalogRefresh.startBatch(items)
     setQueueingLists(false)
   }
+  const assessed = useMemo(() => {
+    const now = new Date()
+    return devices.map((device) => ({ device, assessment: assessDevice(device, now, thresholds) }))
+  }, [devices, thresholds])
+  const attention = assessed.filter(({ assessment }) => assessment.issues.length)
   const filtered = useMemo(
     () =>
-      devices
-        .filter((device) => {
-          const state = getDeviceState(device.lastSeen, new Date(), thresholds)
+      assessed
+        .filter(({ device, assessment }) => {
+          const matches = (device.code + device.name + device.location).toLowerCase().includes(query.toLowerCase())
           return (
-            (device.code + device.name + device.location).toLowerCase().includes(query.toLowerCase()) &&
-            (filter === 'all' || (filter === 'online' ? state === 'online' : state !== 'online'))
+            matches &&
+            (filter === 'all' || (filter === 'online' ? assessment.state === 'online' : !!assessment.issues.length))
           )
         })
         .sort((a, b) =>
           sort === 'last_seen'
-            ? new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime()
+            ? new Date(b.device.lastSeen).getTime() - new Date(a.device.lastSeen).getTime()
             : sort === 'pm25'
-              ? (b.latest.pm25 ?? -1) - (a.latest.pm25 ?? -1)
-              : a.code.localeCompare(b.code),
+              ? (b.device.latest.pm25 ?? -1) - (a.device.latest.pm25 ?? -1)
+              : sort === 'attention'
+                ? assessmentRank(a.assessment) - assessmentRank(b.assessment) ||
+                  a.device.code.localeCompare(b.device.code)
+                : a.device.code.localeCompare(b.device.code),
         ),
-    [devices, filter, query, sort, thresholds],
+    [assessed, filter, query, sort],
   )
-  const states = devices.map((device) => getDeviceState(device.lastSeen, new Date(), thresholds))
+  const states = assessed.map(({ assessment }) => assessment.state)
   const online = states.filter((state) => state === 'online').length
   const stale = states.filter((state) => state === 'stale').length
   const offline = states.filter((state) => state === 'offline').length
@@ -107,21 +121,21 @@ export function FleetPage() {
         <div>
           <span className="eyebrow">Environmental monitoring network</span>
           <h1>Fleet overview</h1>
-          <p>Live operational state and latest fifteen-minute summaries from every field logger.</p>
+          <p>Latest cloud contact and fifteen-minute summaries from every field logger.</p>
         </div>
-        <button className="last-updated refresh-plain" onClick={reload}>
-          <span className="live-pulse" />
+        <button className="last-updated refresh-plain" onClick={reload} aria-label="Refresh cloud status">
+          <RefreshCw className={loading ? 'spin' : ''} size={18} />
           <div>
-            <small>{loading ? 'Refreshing' : preferences.realtime ? 'Auto-refresh active' : 'Auto-refresh off'}</small>
-            <strong>
+            <small>
               {loading
-                ? 'Please wait...'
-                : preferences.realtime
-                  ? preferences.refreshSeconds === 60
-                    ? 'Every minute'
-                    : `Every ${preferences.refreshSeconds / 60} min`
-                  : 'Click to refresh'}
-            </strong>
+                ? 'Checking cloud status'
+                : error
+                  ? 'Cloud check failed'
+                  : preferences.realtime
+                    ? 'Cloud checked · auto-refresh on'
+                    : 'Cloud checked · auto-refresh off'}
+            </small>
+            <strong>{checkedAt ? checkedTime(checkedAt) : 'Waiting for first check'}</strong>
           </div>
         </button>
       </section>
@@ -139,7 +153,7 @@ export function FleetPage() {
               <small>%</small>
             </strong>
             <p>
-              {online} of {devices.length} loggers reporting normally
+              {online} of {devices.length} loggers with recent cloud contact
             </p>
           </div>
           <div
@@ -155,14 +169,15 @@ export function FleetPage() {
           <span>Online now</span>
           <strong>{online}</strong>
           <small className="positive">
-            <ArrowUpRight size={14} /> Heartbeat healthy
+            <ArrowUpRight size={14} /> Recent cloud contact
           </small>
         </div>
         <div className="summary-card">
           <span>Needs attention</span>
-          <strong>{stale + offline}</strong>
+          <strong>{attention.length}</strong>
           <small>
-            {stale} stale · {offline} offline
+            {offline} offline · {stale} delayed ·{' '}
+            {attention.filter(({ assessment }) => assessment.state === 'online').length} online with issues
           </small>
         </div>
         <div className="summary-card">
@@ -171,7 +186,63 @@ export function FleetPage() {
           <small>{telemetryToday.error ? 'Count unavailable' : 'Fifteen-minute records'}</small>
         </div>
       </section>
-      <section className="section-head">
+      <section className="fleet-triage" aria-labelledby="fleet-triage-title">
+        <div className="fleet-triage-head">
+          <div>
+            <span className="eyebrow">What needs a closer look</span>
+            <h2 id="fleet-triage-title">Attention queue</h2>
+            <p>Checks use the latest cloud report. A healthy connection does not confirm SD recording.</p>
+          </div>
+          {attention.length > 4 && (
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => {
+                setFilter('attention')
+                document.getElementById('field-loggers')?.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              View all {attention.length}
+            </button>
+          )}
+        </div>
+        {attention.length ? (
+          <div className="fleet-triage-list">
+            {attention
+              .slice()
+              .sort((a, b) => assessmentRank(a.assessment) - assessmentRank(b.assessment))
+              .slice(0, 4)
+              .map(({ device, assessment }) => (
+                <Link className="fleet-triage-row" to={`/device/${device.code}`} key={device.id}>
+                  <span className={`fleet-triage-icon ${assessment.issues[0].severity}`}>
+                    <AlertTriangle size={18} />
+                  </span>
+                  <span className="fleet-triage-device">
+                    <strong>{device.name}</strong>
+                    <small>
+                      {device.code} · Last contact {formatRelative(device.lastSeen)}
+                    </small>
+                  </span>
+                  <span className="fleet-triage-reasons">
+                    {assessment.issues.slice(0, 2).map((issue) => (
+                      <span className={`fleet-issue ${issue.severity}`} title={issue.detail} key={issue.id}>
+                        {issue.label}
+                      </span>
+                    ))}
+                    {assessment.issues.length > 2 && <small>+{assessment.issues.length - 2} more</small>}
+                  </span>
+                  <ArrowRight className="fleet-triage-arrow" size={18} />
+                </Link>
+              ))}
+          </div>
+        ) : (
+          <div className="fleet-triage-clear">
+            <CheckCircle2 size={19} />{' '}
+            {devices.length ? 'No attention items in the latest cloud report.' : 'No loggers to assess yet.'}
+          </div>
+        )}
+      </section>
+      <section className="section-head" id="field-loggers">
         <div>
           <h2>Field loggers</h2>
           <p>
@@ -203,6 +274,7 @@ export function FleetPage() {
           <div className="filter-wrap">
             <SlidersHorizontal size={15} />
             <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)} aria-label="Sort devices">
+              <option value="attention">Attention first</option>
               <option value="device">Device ID</option>
               <option value="last_seen">Last seen</option>
               <option value="pm25">Highest PM2.5</option>
@@ -246,8 +318,7 @@ export function FleetPage() {
         </section>
       ) : (
         <section className="device-grid">
-          {filtered.map((device) => {
-            const state = getDeviceState(device.lastSeen, new Date(), thresholds)
+          {filtered.map(({ device, assessment }) => {
             return (
               <article className="device-card" key={device.id}>
                 <div className="device-card-top">
@@ -260,9 +331,19 @@ export function FleetPage() {
                       <h3>{device.name}</h3>
                     </div>
                   </div>
-                  <StatusBadge state={state} />
+                  <StatusBadge state={assessment.state} />
                 </div>
                 <p className="location">{device.location}</p>
+                {!!assessment.issues.length && (
+                  <div className="device-issues" aria-label={`Attention items for ${device.code}`}>
+                    {assessment.issues.slice(0, 2).map((issue) => (
+                      <span className={`fleet-issue ${issue.severity}`} title={issue.detail} key={issue.id}>
+                        {issue.label}
+                      </span>
+                    ))}
+                    {assessment.issues.length > 2 && <small>+{assessment.issues.length - 2} more</small>}
+                  </div>
+                )}
                 <div className={`device-readings ${device.co2Enabled ? 'has-co2' : ''}`}>
                   <div>
                     <small>PM1</small>

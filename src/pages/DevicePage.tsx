@@ -79,7 +79,16 @@ export function DevicePage() {
     ...(device.installedSensors.includes('sps30') ? [['SPS30', device.health.sps30, 'Particle sensor'] as const] : []),
     ...(device.installedSensors.includes('sht3x') ? [['SHT3x', device.health.sht3x, 'Temperature + RH'] as const] : []),
     ['RTC', device.health.rtc, 'Clock synchronised'],
-    ['SD card', device.health.sd, 'Recording normally'],
+    ['SD card', device.health.sd, 'Card status reported by logger'],
+    ...(/\.csv$/i.test(device.currentFilename)
+      ? [
+          [
+            'Active CSV',
+            device.currentFileSize > 0,
+            device.currentFileSize > 0 ? 'Reported file size above 0 B' : 'Cloud reports 0 B · verify writes',
+          ] as const,
+        ]
+      : []),
     ...(device.installedSensors.includes('scd30')
       ? [['SCD30', device.health.scd30, 'CO₂ · Temperature · RH'] as const]
       : []),
@@ -137,6 +146,26 @@ export function DevicePage() {
         </Link>
         <Link to={`/device/${device.code}/history`}>One-minute history</Link>
       </nav>
+      {device.currentFileSize === 0 && /\.csv$/i.test(device.currentFilename) && (
+        <div className="device-storage-alert" role="status">
+          <AlertTriangle size={20} />
+          <div>
+            <strong>Active CSV reports 0 B</strong>
+            <span>
+              Cloud readings may continue while the reported SD file is empty. Verify writes when you can reach the
+              logger.
+            </span>
+          </div>
+          {!readOnlyMode && (
+            <button
+              type="button"
+              onClick={() => document.getElementById('device-storage')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              Review storage
+            </button>
+          )}
+        </div>
+      )}
       <section className={`metrics ${device.co2Enabled ? 'has-co2' : ''}`}>
         <MetricCard
           label="PM1"
@@ -343,7 +372,7 @@ export function DevicePage() {
           </div>
         </article>
         {!readOnlyMode && (
-          <article className="panel files-panel">
+          <article className="panel files-panel" id="device-storage">
             <div className="panel-head">
               <div>
                 <span className="eyebrow">On-device storage</span>

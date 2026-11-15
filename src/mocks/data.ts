@@ -32,7 +32,7 @@ export const devices: Device[] = [
     health: { sd: true, sps30: true, sht3x: true, rtc: true, scd30: null },
     latest: { timestamp: isoAgo(3), pm1: 20.6, pm25: 24.8, pm10: 38.6, temperature: 28.1, rh: 54, co2: null },
     currentFilename: 'AQ02_2026-09-22.csv',
-    currentFileSize: 20188421,
+    currentFileSize: 0,
   },
   {
     id: '03',
@@ -69,7 +69,7 @@ export const filesFor = (code: string): DeviceFile[] =>
   [0, 1, 2, 3, 4].map((day) => ({
     id: `${code}-${day}`,
     filename: `${code}_2026-09-${String(22 - day).padStart(2, '0')}.csv`,
-    size: 18634259 + day * 975421,
+    size: code === 'AQ02' && day === 0 ? 0 : 18634259 + day * 975421,
     createdAt: new Date(now - day * 86400000).toISOString(),
   }))
 

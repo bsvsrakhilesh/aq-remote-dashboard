@@ -13,6 +13,9 @@ export interface AsyncState<T> {
   error: string | null
   reload: () => void
 }
+export interface DeviceFleetState extends AsyncState<Device[]> {
+  checkedAt: number | null
+}
 export interface FleetFile {
   file: DeviceFile
   device: Pick<Device, 'id' | 'code' | 'name' | 'lastSeen'>
@@ -124,10 +127,11 @@ function useReloadVersion(autoRefresh = true, intervalSeconds?: number) {
   return { version, reload }
 }
 
-export function useDevices(intervalSeconds = 60): AsyncState<Device[]> {
+export function useDevices(intervalSeconds = 60): DeviceFleetState {
   const [data, setData] = useState<Device[]>(demoMode ? mockDevices : [])
   const [loading, setLoading] = useState(!demoMode)
   const [error, setError] = useState<string | null>(null)
+  const [checkedAt, setCheckedAt] = useState<number | null>(demoMode ? Date.now() : null)
   const { version, reload } = useReloadVersion(true, intervalSeconds)
   useEffect(() => {
     if (demoMode) {
@@ -139,6 +143,7 @@ export function useDevices(intervalSeconds = 60): AsyncState<Device[]> {
         })),
       )
       setLoading(false)
+      setCheckedAt(Date.now())
       return
     }
     if (!supabase) return
@@ -180,13 +185,14 @@ export function useDevices(intervalSeconds = 60): AsyncState<Device[]> {
           ),
         )
         setLoading(false)
+        setCheckedAt(Date.now())
       }
     })()
     return () => {
       alive = false
     }
   }, [version])
-  return { data, loading, error, reload }
+  return { data, loading, error, reload, checkedAt }
 }
 
 export function useTodayTelemetryCount(): AsyncState<number> {
