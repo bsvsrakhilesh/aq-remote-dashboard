@@ -294,6 +294,10 @@ export function useDeviceFiles(device: Device | null): DeviceFilesState {
   const [error, setError] = useState<string | null>(null)
   const { version, reload } = useReloadVersion(false)
   useEffect(() => {
+    window.addEventListener('aq-file-catalog-updated', reload)
+    return () => window.removeEventListener('aq-file-catalog-updated', reload)
+  }, [reload])
+  useEffect(() => {
     if (readOnlyMode && !demoMode) {
       setData([])
       setLoading(false)
@@ -364,6 +368,10 @@ export function useAllFiles(): AsyncState<FleetFile[]> {
   const [loading, setLoading] = useState(!demoMode)
   const [error, setError] = useState<string | null>(null)
   const { version, reload } = useReloadVersion(true, 900)
+  useEffect(() => {
+    window.addEventListener('aq-file-catalog-updated', reload)
+    return () => window.removeEventListener('aq-file-catalog-updated', reload)
+  }, [reload])
   useEffect(() => {
     if (!supabase) return
     let alive = true

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useFleetCatalogRefresh } from '../hooks/useFleetCatalogRefresh'
 import { demoMode, readOnlyMode, supabase } from '../services/supabase'
 import { AlertInbox } from './AlertInbox'
 
@@ -35,6 +36,7 @@ export function AppShell() {
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
   const [notices, setNotices] = useState(false)
   const [email, setEmail] = useState('Research team')
+  const catalogRefresh = useFleetCatalogRefresh()
   const sidebarRef = useRef<HTMLElement>(null)
   const location = useLocation()
   const currentPage = location.pathname.startsWith('/device/')
@@ -185,7 +187,47 @@ export function AppShell() {
             </button>
           </div>
         </header>
-        <Outlet />
+        {catalogRefresh.batch && catalogRefresh.summary && (
+          <div
+            className={`fleet-catalog-global ${catalogRefresh.summary.pending === 0 && catalogRefresh.summary.failed.length ? 'error-banner' : 'inline-notice'}`}
+            role={catalogRefresh.summary.pending === 0 && catalogRefresh.summary.failed.length ? 'alert' : 'status'}
+          >
+            <div>
+              {catalogRefresh.summary.pending > 0
+                ? `SD file lists: ${catalogRefresh.summary.completed} of ${catalogRefresh.summary.total} refreshed; ${catalogRefresh.summary.pending} waiting${catalogRefresh.summary.failed.length ? `; ${catalogRefresh.summary.failed.length} failed` : ''}.`
+                : catalogRefresh.summary.failed.length
+                  ? `File-list refresh finished: ${catalogRefresh.summary.completed} of ${catalogRefresh.summary.total} refreshed; ${catalogRefresh.summary.failed.length} failed.`
+                  : `All ${catalogRefresh.summary.total} SD file lists refreshed.`}
+              {catalogRefresh.statusError && catalogRefresh.summary.pending > 0 && (
+                <span> {catalogRefresh.statusError}</span>
+              )}
+              {!!catalogRefresh.summary.failed.length && (
+                <details>
+                  <summary>Failed loggers</summary>
+                  <ul>
+                    {catalogRefresh.summary.failed.map((item) => (
+                      <li key={item.deviceId}>
+                        {item.code}:{' '}
+                        {item.errorMessage ??
+                          (item.status === 'timed_out'
+                            ? 'Logger did not respond within six hours.'
+                            : item.status === 'unknown'
+                              ? 'Command status is no longer available.'
+                              : 'File-list refresh failed.')}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+            {catalogRefresh.summary.pending === 0 && (
+              <button type="button" onClick={catalogRefresh.clearBatch}>
+                Dismiss
+              </button>
+            )}
+          </div>
+        )}
+        <Outlet context={catalogRefresh} />
       </main>
     </div>
   )

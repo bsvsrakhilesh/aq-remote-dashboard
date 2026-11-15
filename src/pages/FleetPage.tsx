@@ -10,18 +10,21 @@ import {
   Wifi,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDevices, useTodayTelemetryCount } from '../hooks/useData'
+import type { FleetCatalogRefreshContext } from '../hooks/useFleetCatalogRefresh'
 import { usePreferences } from '../hooks/usePreferences'
 import { demoMode, readOnlyMode } from '../services/supabase'
 import { queueFileListCommand } from '../services/fileCatalog'
 import { formatRelative, getDeviceState, rssiQuality } from '../utils'
+import type { FleetCatalogItem } from '../utils/fileCatalogBatch'
 
 type FilterKey = 'all' | 'online' | 'attention'
 type SortKey = 'device' | 'last_seen' | 'pm25'
 
 export function FleetPage() {
+  const catalogRefresh = useOutletContext<FleetCatalogRefreshContext>()
   const { data: devices, loading, error, reload } = useDevices()
   const telemetryToday = useTodayTelemetryCount()
   const { preferences } = usePreferences()
@@ -35,7 +38,7 @@ export function FleetPage() {
   const [queueingLists, setQueueingLists] = useState(false)
   const [catalogNotice, setCatalogNotice] = useState<{ text: string; error: boolean } | null>(null)
   const refreshAllLists = async () => {
-    if (queueingLists || !devices.length) return
+    if (queueingLists || (catalogRefresh.summary?.pending ?? 0) > 0 || !devices.length) return
     setQueueingLists(true)
     setCatalogNotice(null)
     if (demoMode) {
@@ -45,30 +48,33 @@ export function FleetPage() {
     }
 
     // Use the full fleet, including filtered and offline loggers. Limit concurrent requests.
-    const failures: { code: string; reason: string }[] = []
+    const items: FleetCatalogItem[] = []
     for (let index = 0; index < devices.length; index += 4) {
-      await Promise.all(
+      const results = await Promise.all(
         devices.slice(index, index + 4).map(async (device) => {
           try {
-            await queueFileListCommand(device.id)
+            const command = await queueFileListCommand(device.id)
+            return {
+              deviceId: device.id,
+              code: device.code,
+              commandId: command.commandId,
+              status: command.status,
+              errorMessage: null,
+            } satisfies FleetCatalogItem
           } catch (error) {
-            failures.push({ code: device.code, reason: error instanceof Error ? error.message : 'Request failed.' })
+            return {
+              deviceId: device.id,
+              code: device.code,
+              commandId: null,
+              status: 'request_failed',
+              errorMessage: error instanceof Error ? error.message : 'Request failed.',
+            } satisfies FleetCatalogItem
           }
         }),
       )
+      items.push(...results)
     }
-    const queued = devices.length - failures.length
-    setCatalogNotice(
-      failures.length
-        ? {
-            text: `${queued} of ${devices.length} file-list commands queued. Failed: ${failures.map(({ code }) => code).join(', ')}. ${failures[0].reason}`,
-            error: true,
-          }
-        : {
-            text: `File-list commands queued for all ${devices.length} loggers. Catalogs update after each logger checks in; online loggers usually respond within 15 minutes.`,
-            error: false,
-          },
-    )
+    catalogRefresh.startBatch(items)
     setQueueingLists(false)
   }
   const filtered = useMemo(
@@ -206,11 +212,15 @@ export function FleetPage() {
             <button
               className="button secondary fleet-refresh-all"
               onClick={() => void refreshAllLists()}
-              disabled={queueingLists || loading || !devices.length}
+              disabled={queueingLists || (catalogRefresh.summary?.pending ?? 0) > 0 || loading || !devices.length}
               title="Request an SD file list from every registered logger"
             >
               <RefreshCw className={queueingLists ? 'spin' : ''} size={15} />
-              {queueingLists ? 'Sending...' : 'Refresh all lists'}
+              {queueingLists
+                ? 'Sending...'
+                : (catalogRefresh.summary?.pending ?? 0) > 0
+                  ? `${catalogRefresh.summary?.completed ?? 0}/${catalogRefresh.summary?.total ?? 0} refreshed`
+                  : 'Refresh all lists'}
             </button>
           )}
         </div>

@@ -64,6 +64,39 @@ select {
   padding: 10px 13px;
   font-size: 0.8125rem;
 }
+.fleet-catalog-global {
+  margin: 16px 34px 0;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.8125rem;
+}
+.fleet-catalog-global details {
+  margin-top: 6px;
+}
+.fleet-catalog-global summary {
+  cursor: pointer;
+}
+.fleet-catalog-global ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.fleet-catalog-global button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+@media (max-width: 800px) {
+  .fleet-catalog-global {
+    margin-inline: 18px;
+  }
+}
 .page-heading {
   gap: 24px;
 }
