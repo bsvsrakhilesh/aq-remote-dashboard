@@ -32,7 +32,7 @@ export function FilesPage() {
       onlineMinutes: preferences.onlineMinutes,
       staleMinutes: preferences.staleMinutes,
     }) === 'offline'
-  const selectableRows = rows.filter((row) => !isOffline(row.device.lastSeen))
+  const selectableRows = rows.filter((row) => row.file.size > 0 && !isOffline(row.device.lastSeen))
   const toggleSelected = (id: string) =>
     setSelectedIds((current) => {
       const next = new Set(current)
@@ -41,7 +41,9 @@ export function FilesPage() {
       return next
     })
   const requestSelected = () => {
-    requestFiles(data.filter((row) => selectedIds.has(row.file.id) && !isOffline(row.device.lastSeen)))
+    requestFiles(
+      data.filter((row) => selectedIds.has(row.file.id) && row.file.size > 0 && !isOffline(row.device.lastSeen)),
+    )
     setSelectedIds(new Set())
   }
   return (
@@ -143,6 +145,7 @@ export function FilesPage() {
               ))
             : rows.map(({ file, device }) => {
                 const offline = isOffline(device.lastSeen)
+                const unavailable = offline || file.size === 0
                 return (
                   <div className="table-row" role="row" key={file.id}>
                     <span className="file-name-cell" role="cell">
@@ -150,7 +153,7 @@ export function FilesPage() {
                         type="checkbox"
                         aria-label={`Select ${file.filename} from ${device.code}`}
                         checked={selectedIds.has(file.id)}
-                        disabled={readOnlyMode || offline}
+                        disabled={readOnlyMode || unavailable}
                         onChange={() => toggleSelected(file.id)}
                       />
                       <i>
@@ -165,10 +168,10 @@ export function FilesPage() {
                     <span role="cell">{formatFileSize(file.size)}</span>
                     <button
                       className="button secondary small"
-                      disabled={readOnlyMode || offline}
+                      disabled={readOnlyMode || unavailable}
                       onClick={() => requestFiles([{ file, device }])}
                     >
-                      <Download size={15} /> {offline ? 'Offline' : 'Request'}
+                      <Download size={15} /> {offline ? 'Offline' : file.size === 0 ? 'Empty file' : 'Request'}
                     </button>
                   </div>
                 )

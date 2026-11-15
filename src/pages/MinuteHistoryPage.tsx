@@ -24,6 +24,7 @@ export function MinuteHistoryPage() {
   const device = devices.data.find((d) => d.code === code)
   const [date, setDate] = useState(istDate())
   const history = useMinuteHistory(device?.id, date, device?.co2Enabled ?? false)
+  const activeCsvEmpty = device?.currentFilename.endsWith('.csv') && device.currentFileSize === 0
   const timeline = useMemo(() => minuteTimeline(history.rows, date), [history.rows, date])
   const sampleRows = history.rows.reduce((sum, row) => sum + row.sampleCount, 0)
   if (!device)
@@ -133,10 +134,36 @@ export function MinuteHistoryPage() {
             {history.job.error_message}
           </div>
         )}
+        {activeCsvEmpty && (
+          <div className="inline-notice warning" role="status">
+            The logger reports a 0 B active SD CSV. Minute history cannot import it. Check the logger’s local SD file
+            and retry after its size starts growing.
+          </div>
+        )}
+        {history.retryNotice && (
+          <div className="inline-notice" role="status">
+            {history.retryNotice}
+          </div>
+        )}
         <div className="history-sync-actions">
-          <button className="button secondary" onClick={history.reload}>
+          <button
+            className="button secondary"
+            onClick={() => {
+              history.reload()
+              devices.reload()
+            }}
+          >
             <RefreshCw size={16} /> Refresh status
           </button>
+          {!readOnlyMode && history.enabled && history.job?.status === 'failed' && (
+            <button
+              className="button primary"
+              disabled={history.retrying || activeCsvEmpty}
+              onClick={() => void history.retry()}
+            >
+              <RefreshCw size={16} /> {history.retrying ? 'Queuing retry…' : 'Retry CSV import'}
+            </button>
+          )}
           {!readOnlyMode && (
             <button className="button secondary" disabled={history.saving} onClick={() => void history.toggle()}>
               {history.enabled ? <Pause size={16} /> : <Play size={16} />}

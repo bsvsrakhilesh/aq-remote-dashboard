@@ -374,6 +374,11 @@ export function DevicePage() {
                 {filesState.error} <button onClick={filesState.reload}>Retry</button>
               </div>
             )}
+            {device.currentFileSize === 0 && device.currentFilename.endsWith('.csv') && (
+              <div className="inline-notice warning" role="status">
+                The logger reports an empty active CSV. Check the local SD file before requesting a transfer.
+              </div>
+            )}
             <div className="file-table" role="list" aria-label="Recent logger files">
               {filesState.loading && !filesState.data.length
                 ? Array.from({ length: 4 }, (_, index) => (
@@ -395,7 +400,7 @@ export function DevicePage() {
                       <span className="file-size">{formatFileSize(file.size)}</span>
                       <button
                         className="icon-btn"
-                        disabled={state === 'offline'}
+                        disabled={state === 'offline' || file.size === 0}
                         onClick={() => setDownload(file)}
                         aria-label={`Download ${file.filename}`}
                       >
@@ -416,7 +421,7 @@ export function DevicePage() {
       <section className="architecture-note">
         <div>
           <strong>Remote dashboard</strong>
-          <span>15-minute telemetry, one-minute command checks and requested CSV transfers.</span>
+          <span>15-minute telemetry and command checks, plus requested CSV transfers.</span>
         </div>
         <div>
           <strong>Local dashboard</strong>

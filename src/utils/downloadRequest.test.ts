@@ -7,6 +7,7 @@ describe('download request failures', () => {
   })
   it('distinguishes a stale file catalog from a command-queue failure', () => {
     expect(describeDownloadRequestFailure(404, 'file_not_found')).toMatch(/Refresh the file list/)
+    expect(describeDownloadRequestFailure(409, 'empty_file')).toMatch(/empty SD file/)
     expect(describeDownloadRequestFailure(500, 'command_failed')).toMatch(/could not be queued/)
   })
   it('reports network and unknown server failures without inventing a logger fault', () => {

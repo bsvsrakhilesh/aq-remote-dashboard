@@ -313,7 +313,7 @@ export function useDeviceFiles(device: Device | null): DeviceFilesState {
       .from('device_files')
       .select('id,filename,size_bytes,created_at')
       .eq('device_id', device.id)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
       .then(({ data: rows, error: fileError }) => {
         if (!alive) return
         if (fileError) setError('The logger file catalog is temporarily unavailable.')
@@ -372,7 +372,7 @@ export function useAllFiles(): AsyncState<FleetFile[]> {
     void supabase
       .from('device_files')
       .select('id,filename,size_bytes,created_at,devices!inner(id,device_code,display_name,last_seen)')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
       .then(({ data: rows, error: fileError }) => {
         if (!alive) return
         if (fileError) setError('The fleet file catalog is temporarily unavailable.')

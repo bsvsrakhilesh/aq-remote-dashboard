@@ -34,6 +34,7 @@ Deno.serve(async (request) => {
     .eq('filename', body.filename)
     .maybeSingle()
   if (!file) return json(request, { ok: false, error: 'file_not_found' }, 404)
+  if (file.size_bytes === 0) return json(request, { ok: false, error: 'empty_file' }, 409)
   const { data: active } = await db
     .from('download_requests')
     .select('id,status,expires_at')

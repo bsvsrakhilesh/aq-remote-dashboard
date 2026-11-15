@@ -230,7 +230,7 @@ export function DownloadModal({ file, deviceCode, deviceId, onClose }: Props) {
             : terminal
               ? 'Request a fresh copy to try again.'
               : status === 'queued'
-                ? 'With the updated firmware, the logger checks for requests every minute. Keep this window open while it responds.'
+                ? 'The logger checks for requests every 15 minutes. Keep this window open while it responds.'
                 : 'Keep this window open while the logger streams directly from its SD card.'}
         </p>
         <div className="file-summary">

@@ -4,6 +4,8 @@ export function describeDownloadRequestFailure(status?: number, code?: string, t
   if (status === 401 || code === 'unauthorized')
     return 'Your session has expired. Sign out and sign in again, then retry the download.'
   if (code === 'file_not_found') return 'This file is no longer in the catalog. Refresh the file list and retry.'
+  if (code === 'empty_file')
+    return 'The logger reported an empty SD file. Check local SD logging and refresh the file list.'
   if (code === 'command_failed') return 'The logger command could not be queued. Please retry.'
   if (code === 'request_failed') return 'Supabase could not create the transfer request. Please retry.'
   if (code === 'invalid_request') return 'The file request is invalid. Refresh the file list and retry.'

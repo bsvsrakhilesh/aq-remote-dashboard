@@ -42,6 +42,8 @@ export function useMinuteHistory(deviceId: string | undefined, date: string, co2
   const [error, setError] = useState<string | null>(null)
   const [statusError, setStatusError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  const [retryNotice, setRetryNotice] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
   const lastStatusLoadAt = useRef(0)
   const reload = useCallback(() => setVersion((v) => v + 1), [])
@@ -208,5 +210,39 @@ export function useMinuteHistory(deviceId: string | undefined, date: string, co2
       setSaving(false)
     }
   }
-  return { rows, sync, job, enabled, loading, saving, error: error ?? statusError, reload, toggle }
+  const retry = async () => {
+    if (!deviceId || retrying) return
+    setRetrying(true)
+    setRetryNotice(null)
+    setStatusError(null)
+    try {
+      if (demoMode) {
+        setRetryNotice('Demo: a CSV refresh would be queued.')
+      } else {
+        if (!supabase) throw new Error('Cloud connection is unavailable.')
+        const { data, error: retryError } = await supabase.rpc('request_history_sync', { p_device: deviceId })
+        if (retryError) throw retryError
+        setRetryNotice(typeof data === 'string' ? data : 'CSV refresh queued. Keep the logger online.')
+        reload()
+      }
+    } catch (retryError) {
+      setStatusError(retryError instanceof Error ? retryError.message : 'Could not retry the CSV import.')
+    } finally {
+      setRetrying(false)
+    }
+  }
+  return {
+    rows,
+    sync,
+    job,
+    enabled,
+    loading,
+    saving,
+    retrying,
+    retryNotice,
+    error: error ?? statusError,
+    reload,
+    toggle,
+    retry,
+  }
 }

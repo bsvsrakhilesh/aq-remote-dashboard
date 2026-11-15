@@ -367,6 +367,7 @@ int lastCloudHttpCode = 0;
 String cloudHealth = "NOT CONFIGURED";
 String cloudLastAction = "--";
 uint64_t currentLogFileSizeBytes = 0;
+String lastSuccessfulLogPath;
 
 // Remote CSV uploads are streamed a small chunk at a time from the SD card so
 // the complete file is never loaded into ESP32 RAM. The upload is serviced from
@@ -1026,7 +1027,12 @@ void handleLiveData() {
     lastSdWriteText = String((liveMs-lastSuccessfulSdWriteMs)/1000UL) + " s ago";
   }
 
-  bool sdHealthy = sdReady && sdLastWriteOk && lastSuccessfulSdWriteMs > 0;
+  const bool currentFileHasRows = currentLogFileSizeBytes >
+      strlen(timeVerified ? WEEKLY_CSV_HEADER : RECOVERY_CSV_HEADER) + 2;
+  const bool recentSdWrite = lastSuccessfulSdWriteMs > 0 &&
+      (uint64_t)(liveMs - lastSuccessfulSdWriteMs) <= (uint64_t)LOG_INTERVAL * 3ULL + 60000ULL;
+  bool sdHealthy = sdReady && sdLastWriteOk && recentSdWrite && currentFileHasRows &&
+                   lastSuccessfulLogPath == getLogFilePath();
   String hint = "All required components are operating normally.";
   if (!displayOk) hint = "OLED not detected. Check expansion-board seating, I2C connection and power.";
   else if (!timeVerified) hint = "Clock unverified. SD logging continues in a recovery CSV until time is verified.";
@@ -1037,6 +1043,8 @@ void handleLiveData() {
   else if (!scdLiveUsable) hint = "SCD30 is connected but data is missing/stale. Check I2C connection and sensor warm-up.";
   else if (!sdReady) hint = "SD card unavailable. Check card insertion, formatting and expansion-board connection.";
   else if (!sdLastWriteOk) hint = "SD card initialized but the most recent log write failed.";
+  else if (!currentFileHasRows) hint = "The active SD CSV has no saved readings. Check card space and writing.";
+  else if (!recentSdWrite) hint = "The active SD CSV has not received a recent reading.";
 
   String json = F("{");
   json += F("\"spsValid\":"); json += spsLiveUsable ? F("true") : F("false");
@@ -2169,8 +2177,17 @@ bool tryInitSd() {
   }
 
   if (f.size() == 0) {
-    f.println(weekly ? WEEKLY_CSV_HEADER : RECOVERY_CSV_HEADER);
+    const char* header = weekly ? WEEKLY_CSV_HEADER : RECOVERY_CSV_HEADER;
+    size_t written = f.println(header);
     f.flush();
+    if (written == 0 || f.size() <= strlen(header)) {
+      f.close();
+      sdReady = false;
+      sdLastWriteOk = false;
+      sdHealth = "HEADER WRITE FAILED";
+      SD.end();
+      return false;
+    }
   }
   currentLogFileSizeBytes = (uint64_t)f.size();
   f.close();
@@ -2575,30 +2592,37 @@ void serviceSdLogging() {
   String path = weekly ? getWeeklyLogFilePath(now) : getRecoveryLogFilePath();
   File f = SD.open(path.c_str(), FILE_APPEND);
   if (f) {
+    bool headerOk = true;
     if (f.size() == 0) {
-      f.println(weekly ? WEEKLY_CSV_HEADER : RECOVERY_CSV_HEADER);
+      const char* header = weekly ? WEEKLY_CSV_HEADER : RECOVERY_CSV_HEADER;
+      size_t headerWritten = f.println(header);
       f.flush();
+      headerOk = headerWritten > 0 && f.size() > strlen(header);
     }
 
-    size_t written = f.write(reinterpret_cast<const uint8_t*>(row), rowLength);
+    uint64_t beforeWriteSize = (uint64_t)f.size();
+    size_t written = headerOk ? f.write(reinterpret_cast<const uint8_t*>(row), rowLength) : 0;
 
     f.flush();
     currentLogFileSizeBytes = (uint64_t)f.size();
     f.close();
 
-    if (written == static_cast<size_t>(rowLength)) {
+    bool writePersisted = headerOk && written == static_cast<size_t>(rowLength) &&
+                          currentLogFileSizeBytes >= beforeWriteSize + (uint64_t)rowLength;
+    if (writePersisted) {
       sdReady = true;
       sdLastWriteOk = true;
       sdHealth = weekly ? "LOGGING" : "LOGGING - TIME UNVERIFIED";
       lastSuccessfulSdWriteMs = ms;
+      lastSuccessfulLogPath = path;
       if (!weekly) unsyncedAwaitingAnchor = true;
     } else {
       sdLastWriteOk = false;
-      sdHealth = "WRITE FAILED";
+      sdHealth = headerOk ? "WRITE NOT PERSISTED" : "HEADER WRITE FAILED";
     }
 
     // Two beeps mean a real CSV row has successfully reached the SD card.
-    if (written == static_cast<size_t>(rowLength) && !firstSuccessfulLogBeepDone) {
+    if (writePersisted && !firstSuccessfulLogBeepDone) {
       firstSuccessfulLogBeepDone = true;
       buzzerLoggingReadyDoubleBeep();
       Serial.println("BEEP BEEP: First SD row written; logging confirmed.");
@@ -2637,6 +2661,21 @@ void sendCloudCheckIn(bool includeTelemetry) {
   unsigned long ms = millis();
   bool spsOk = sps30DataUsable(ms);
   bool secondaryOk = scd30DataUsable(ms);
+  String currentPath = getLogFilePath();
+  uint64_t activeFileSize = 0;
+  if (sdReady) {
+    File activeFile = SD.open(currentPath.c_str(), FILE_READ);
+    if (activeFile) {
+      activeFileSize = (uint64_t)activeFile.size();
+      activeFile.close();
+    }
+  }
+  currentLogFileSizeBytes = activeFileSize;
+  const bool recentSdWrite = lastSuccessfulSdWriteMs > 0 &&
+      (uint64_t)(ms - lastSuccessfulSdWriteMs) <= (uint64_t)LOG_INTERVAL * 3ULL + 60000ULL;
+  const bool sdOk = sdReady && sdLastWriteOk && recentSdWrite &&
+      lastSuccessfulLogPath == currentPath &&
+      activeFileSize > strlen(trustedTime ? WEEKLY_CSV_HEADER : RECOVERY_CSV_HEADER) + 2;
 
   String body = "{";
   body += "\"device_id\":\"" + jsonEscape(CLOUD_DEVICE_ID) + "\"";
@@ -2644,13 +2683,13 @@ void sendCloudCheckIn(bool includeTelemetry) {
   if (trustedTime) body += "\"" + jsonEscape(iso8601FromRtc()) + "\"";
   else body += "null";
   body += ",\"rssi\":" + String(connected ? WiFi.RSSI() : -120);
-  body += ",\"sd_ok\":" + String(sdReady && sdLastWriteOk ? "true" : "false");
+  body += ",\"sd_ok\":" + String(sdOk ? "true" : "false");
   body += ",\"sps30_ok\":" + String(spsOk ? "true" : "false");
   body += ",\"sht3x_ok\":false";  // This logger uses SCD30, not SHT3x.
   body += ",\"scd30_ok\":" + String(secondaryOk ? "true" : "false");
   body += ",\"rtc_ok\":" + String(rtcOk && trustedTime ? "true" : "false");
-  body += ",\"current_file\":\"" + jsonEscape(getLogDownloadName()) + "\"";
-  body += ",\"current_file_size\":" + String((uint32_t)currentLogFileSizeBytes);
+  body += ",\"current_file\":\"" + jsonEscape(currentPath.substring(1)) + "\"";
+  body += ",\"current_file_size\":" + String((uint32_t)activeFileSize);
   body += ",\"firmware_version\":\"" + jsonEscape(FIRMWARE_VERSION) + "\"";
   if (trustedTime && includeTelemetry) {
     body += ",\"telemetry\":{";

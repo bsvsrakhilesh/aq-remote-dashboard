@@ -18,16 +18,35 @@ Deno.serve(async (request) => {
   const { data: device } = await userClient.from('devices').select('id').eq('id', body.device_id).maybeSingle()
   if (!device) return json(request, { ok: false, error: 'device_not_found' }, 404)
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-  const { data: existing } = await admin
+  const { data: existing, error: lookupError } = await admin
     .from('device_commands')
-    .select('id,status')
+    .select('id,status,created_at,acknowledged_at')
     .eq('device_id', body.device_id)
     .eq('command_type', 'list_files')
     .in('status', ['queued', 'acknowledged', 'running'])
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (existing) return json(request, { ok: true, command_id: existing.id, status: existing.status, deduplicated: true })
+  if (lookupError) return json(request, { ok: false, error: 'command_lookup_failed' }, 500)
+  if (existing) {
+    // A failed scan used to leave an acknowledged command active forever.
+    // Let a new request through once that scan has had ample time to finish.
+    const activeSince =
+      existing.status === 'queued' ? existing.created_at : (existing.acknowledged_at ?? existing.created_at)
+    const timeoutMs = existing.status === 'queued' ? 6 * 60 * 60 * 1000 : 30 * 60 * 1000
+    if (Date.parse(activeSince) > Date.now() - timeoutMs)
+      return json(request, { ok: true, command_id: existing.id, status: existing.status, deduplicated: true })
+    const { error: expireError } = await admin
+      .from('device_commands')
+      .update({
+        status: 'expired',
+        completed_at: new Date().toISOString(),
+        error_message: 'File-list command timed out',
+      })
+      .eq('id', existing.id)
+      .eq('status', existing.status)
+    if (expireError) return json(request, { ok: false, error: 'command_expiry_failed' }, 500)
+  }
   const { data: command, error } = await admin
     .from('device_commands')
     .insert({ device_id: body.device_id, command_type: 'list_files', payload: { requested_by: user.id } })
