@@ -45,7 +45,7 @@ const formatTime = (value: string) =>
   ' IST'
 
 export function DataLibraryPage() {
-  const fleet = useDevices()
+  const fleet = useDevices(900)
   const imports = useWorkspaceTable<ImportRun>('csv_import_runs', 'created_at')
   const [tab, setTab] = useState<'import' | 'storage'>('import')
   const [deviceId, setDeviceId] = useState('')

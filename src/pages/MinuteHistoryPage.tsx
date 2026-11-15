@@ -20,7 +20,7 @@ const jobLabels = {
 export function MinuteHistoryPage() {
   const { code } = useParams()
   const navigate = useNavigate()
-  const devices = useDevices()
+  const devices = useDevices(900)
   const device = devices.data.find((d) => d.code === code)
   const [date, setDate] = useState(istDate())
   const history = useMinuteHistory(device?.id, date, device?.co2Enabled ?? false)

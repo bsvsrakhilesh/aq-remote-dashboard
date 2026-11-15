@@ -72,7 +72,10 @@ export function SettingsPage() {
             <Cloud />
             <div>
               <h2>Data refresh</h2>
-              <p>Dashboard data refreshes every 15 minutes while this tab is visible.</p>
+              <p>
+                Live readings and device status refresh every minute while this tab is visible. Loggers send new cloud
+                readings every 15 minutes.
+              </p>
             </div>
           </div>
           <label className="toggle-row">

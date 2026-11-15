@@ -100,9 +100,10 @@ const mapDevice = (row: DeviceRow, latest?: TelemetryRow): Device => ({
   currentFileSize: row.current_file_size ?? 0,
 })
 
-function useReloadVersion(autoRefresh = true) {
+function useReloadVersion(autoRefresh = true, intervalSeconds?: number) {
   const [version, setVersion] = useState(0)
   const { preferences } = usePreferences()
+  const refreshSeconds = intervalSeconds ?? preferences.refreshSeconds
   const lastReloadAt = useRef(Date.now())
   const reload = useCallback(() => {
     lastReloadAt.current = Date.now()
@@ -111,27 +112,23 @@ function useReloadVersion(autoRefresh = true) {
   useEffect(() => {
     if (!autoRefresh || !preferences.realtime) return
     const refreshWhenDue = () => {
-      if (
-        document.visibilityState === 'visible' &&
-        Date.now() - lastReloadAt.current >= preferences.refreshSeconds * 1000
-      )
-        reload()
+      if (document.visibilityState === 'visible' && Date.now() - lastReloadAt.current >= refreshSeconds * 1000) reload()
     }
-    const timer = window.setInterval(refreshWhenDue, preferences.refreshSeconds * 1000)
+    const timer = window.setInterval(refreshWhenDue, refreshSeconds * 1000)
     document.addEventListener('visibilitychange', refreshWhenDue)
     return () => {
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', refreshWhenDue)
     }
-  }, [autoRefresh, preferences.realtime, preferences.refreshSeconds, reload])
+  }, [autoRefresh, preferences.realtime, refreshSeconds, reload])
   return { version, reload }
 }
 
-export function useDevices(): AsyncState<Device[]> {
+export function useDevices(intervalSeconds = 60): AsyncState<Device[]> {
   const [data, setData] = useState<Device[]>(demoMode ? mockDevices : [])
   const [loading, setLoading] = useState(!demoMode)
   const [error, setError] = useState<string | null>(null)
-  const { version, reload } = useReloadVersion()
+  const { version, reload } = useReloadVersion(true, intervalSeconds)
   useEffect(() => {
     if (demoMode) {
       const offsets = [0.3, 1.2, 47, 6]
@@ -196,7 +193,7 @@ export function useTodayTelemetryCount(): AsyncState<number> {
   const [data, setData] = useState(demoMode ? 1096 : 0)
   const [loading, setLoading] = useState(!demoMode)
   const [error, setError] = useState<string | null>(null)
-  const { version, reload } = useReloadVersion()
+  const { version, reload } = useReloadVersion(true, 900)
   useEffect(() => {
     if (!supabase) return
     let alive = true
@@ -225,7 +222,8 @@ export function useTelemetry(device: Device | null, range: RangeKey): AsyncState
   const [loading, setLoading] = useState(!demoMode)
   const [error, setError] = useState<string | null>(null)
   const cache = useRef<{ key: string; rows: TelemetryRow[] } | null>(null)
-  const { version, reload } = useReloadVersion()
+  // The device snapshot already refreshes every minute and triggers this chart.
+  const { version, reload } = useReloadVersion(false)
   useEffect(() => {
     if (demoMode && device) {
       setData(telemetryFor(device, range))
@@ -288,6 +286,8 @@ export function useTelemetry(device: Device | null, range: RangeKey): AsyncState
 }
 
 export function useDeviceFiles(device: Device | null): DeviceFilesState {
+  const deviceId = device?.id ?? null
+  const deviceCode = device?.code ?? null
   const initial = demoMode && device ? filesFor(device.code) : []
   const [data, setData] = useState<DeviceFile[]>(initial)
   const [loading, setLoading] = useState(!demoMode)
@@ -300,19 +300,19 @@ export function useDeviceFiles(device: Device | null): DeviceFilesState {
       setError(null)
       return
     }
-    if (demoMode && device) {
-      setData(filesFor(device.code))
+    if (demoMode && deviceCode) {
+      setData(filesFor(deviceCode))
       setLoading(false)
       return
     }
-    if (!supabase || !device) return
+    if (!supabase || !deviceId) return
     let alive = true
     setLoading(true)
     setError(null)
     void supabase
       .from('device_files')
       .select('id,filename,size_bytes,created_at')
-      .eq('device_id', device.id)
+      .eq('device_id', deviceId)
       .order('created_at', { ascending: false, nullsFirst: false })
       .then(({ data: rows, error: fileError }) => {
         if (!alive) return
@@ -331,7 +331,7 @@ export function useDeviceFiles(device: Device | null): DeviceFilesState {
     return () => {
       alive = false
     }
-  }, [device, version])
+  }, [deviceId, deviceCode, version])
   const requestCatalog = useCallback(async () => {
     if (!device) throw new Error('Device is not available')
     if (demoMode) {
@@ -363,7 +363,7 @@ export function useAllFiles(): AsyncState<FleetFile[]> {
   const [data, setData] = useState<FleetFile[]>(demoMode ? demo : [])
   const [loading, setLoading] = useState(!demoMode)
   const [error, setError] = useState<string | null>(null)
-  const { version, reload } = useReloadVersion()
+  const { version, reload } = useReloadVersion(true, 900)
   useEffect(() => {
     if (!supabase) return
     let alive = true

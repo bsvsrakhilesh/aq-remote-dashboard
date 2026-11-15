@@ -62,7 +62,7 @@ const stamp = (value: number) =>
   })
 
 export function AnalysisPage() {
-  const fleet = useDevices()
+  const fleet = useDevices(900)
   const [config, setConfig] = useState<ResearchConfig>(initialConfig)
   const [saved, setSaved] = useState<SavedView[]>([])
   const [name, setName] = useState('')

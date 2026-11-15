@@ -111,7 +111,9 @@ export function FleetPage() {
               {loading
                 ? 'Please wait...'
                 : preferences.realtime
-                  ? `Every ${preferences.refreshSeconds / 60} min`
+                  ? preferences.refreshSeconds === 60
+                    ? 'Every minute'
+                    : `Every ${preferences.refreshSeconds / 60} min`
                   : 'Click to refresh'}
             </strong>
           </div>

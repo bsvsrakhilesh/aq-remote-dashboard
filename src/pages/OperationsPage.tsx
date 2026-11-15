@@ -55,7 +55,7 @@ const time = (stamp: string) =>
   ' IST'
 
 export function OperationsPage() {
-  const fleet = useDevices()
+  const fleet = useDevices(900)
   const events = useWorkspaceTable<AlertEvent>('alert_events', 'opened_at')
   const rules = useWorkspaceTable<Rule>('alert_rules', 'created_at')
   const notes = useWorkspaceTable<Note>('deployment_notes', 'occurred_at')

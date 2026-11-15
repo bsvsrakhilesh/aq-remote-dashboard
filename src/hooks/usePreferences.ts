@@ -13,7 +13,7 @@ export interface Preferences {
 export const defaultPreferences: Preferences = {
   onlineMinutes: 20,
   staleMinutes: 40,
-  refreshSeconds: 900,
+  refreshSeconds: 60,
   realtime: true,
   offlineAlerts: true,
   sensorAlerts: true,
