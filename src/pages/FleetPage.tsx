@@ -40,7 +40,7 @@ export function FleetPage() {
   )
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FilterKey>('all')
-  const [sort, setSort] = useState<SortKey>('attention')
+  const [sort, setSort] = useState<SortKey>('device')
   const [queueingLists, setQueueingLists] = useState(false)
   const [catalogNotice, setCatalogNotice] = useState<{ text: string; error: boolean } | null>(null)
   const refreshAllLists = async () => {
@@ -274,8 +274,8 @@ export function FleetPage() {
           <div className="filter-wrap">
             <SlidersHorizontal size={15} />
             <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)} aria-label="Sort devices">
-              <option value="attention">Attention first</option>
               <option value="device">Device ID</option>
+              <option value="attention">Attention first</option>
               <option value="last_seen">Last seen</option>
               <option value="pm25">Highest PM2.5</option>
             </select>
