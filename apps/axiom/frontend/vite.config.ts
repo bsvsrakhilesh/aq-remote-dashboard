@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
+  css: { postcss: { plugins: [] } },
   build: {
     // ECharts is lazy-loaded with the analysis view and is under 200 kB compressed.
     chunkSizeWarningLimit: 600,

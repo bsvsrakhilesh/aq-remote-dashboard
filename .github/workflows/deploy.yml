@@ -21,6 +21,26 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_PUBLIC_READ_ONLY: ${{ vars.VITE_PUBLIC_READ_ONLY }}
           VITE_DEMO_MODE: ${{ vars.VITE_DEMO_MODE }}
+          VITE_AXIOM_ENABLED: ${{ vars.VITE_AXIOM_ENABLED }}
+      - name: Build Axiom frontend
+        env:
+          VITE_BASE_PATH: /aq-remote-dashboard/axiom/
+          VITE_STATIC_HOST: 'true'
+          VITE_API_BASE_URL: ${{ vars.VITE_AXIOM_API_BASE_URL }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_AXIOM_ENABLED: ${{ vars.VITE_AXIOM_ENABLED }}
+        run: |
+          if [ "$VITE_AXIOM_ENABLED" = "true" ]; then
+            test -n "$VITE_API_BASE_URL" && test -n "$VITE_SUPABASE_URL" && test -n "$VITE_SUPABASE_ANON_KEY" || {
+              echo '::error::Axiom needs its HTTPS API, Supabase URL, and public Supabase key.'
+              exit 1
+            }
+          else
+            unset VITE_API_BASE_URL
+          fi
+          npm ci --prefix apps/axiom/frontend
+          npm run build --prefix apps/axiom/frontend -- --outDir ../../../dist/axiom
       - uses: actions/configure-pages@v5
         with:
           enablement: true

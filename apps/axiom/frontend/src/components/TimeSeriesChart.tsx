@@ -12,6 +12,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
 import type { TimeSeriesResponse } from '../types'
 import { CHART_COLORS } from './chartColors'
+import { formatIst } from '../india-time'
 
 echarts.use([
   LineChart,
@@ -34,6 +35,7 @@ export function TimeSeriesChart({ data, loading }: Props) {
 
   const option = useMemo<EChartsOption>(() => {
     const series = data?.series ?? []
+    const ist = data?.timestamp_zone === 'UTC'
     return {
       useUTC: true,
       animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -57,7 +59,8 @@ export function TimeSeriesChart({ data, loading }: Props) {
         borderWidth: 0,
         padding: [10, 12],
         textStyle: { color: '#f8faf9', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12 },
-        axisPointer: { type: 'line', lineStyle: { color: '#8f9994', width: 1, type: 'dashed' } },
+        axisPointer: { type: 'line', lineStyle: { color: '#8f9994', width: 1, type: 'dashed' },
+          label: ist ? { formatter: ({ value }) => formatIst(value) } : undefined },
         valueFormatter: (value) => value == null ? 'No observation' : `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${data?.unit ?? ''}`,
       },
       xAxis: {
@@ -69,6 +72,7 @@ export function TimeSeriesChart({ data, loading }: Props) {
           fontFamily: 'Inter, system-ui, sans-serif',
           fontSize: 11,
           hideOverlap: true,
+          formatter: ist ? (value: number) => formatIst(value) : undefined,
         },
         splitLine: { show: false },
       },

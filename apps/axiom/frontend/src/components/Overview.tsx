@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ArrowRight, Activity, ChartNoAxesCombined, Database, FileSpreadsheet, FlaskConical, Search, ShieldCheck, Sigma, Upload, X } from 'lucide-react'
-import type { Catalog } from '../types'
+import { istIso } from '../india-time'
+import type { Catalog, Monitor } from '../types'
 
 export type WorkspaceView = 'overview' | 'series' | 'statistics' | 'collocation'
 interface Props {
@@ -8,6 +9,14 @@ interface Props {
   onNavigate: (view: WorkspaceView) => void
   onDataset: (id: string) => void
   onImport: () => void
+}
+
+function dateRange(item: Monitor) {
+  if (!item.start || !item.end) return 'No time mapping'
+  const ist = item.timestamp_zone === 'UTC'
+  const start = (ist ? istIso(item.start) : item.start).slice(0, 10)
+  const end = (ist ? istIso(item.end) : item.end).slice(0, 10)
+  return start + ' to ' + end + (ist ? ' IST' : '')
 }
 
 export default function Overview({ catalog, onNavigate, onDataset, onImport }: Props) {
@@ -38,7 +47,7 @@ export default function Overview({ catalog, onNavigate, onDataset, onImport }: P
     </section>
     <section className="details-card dataset-library">
       <div className="card-heading"><div><h2>Dataset library <span className="count-badge">{catalog.monitors.length}</span></h2><p>Your source files, ready to explore.</p></div><div className="library-search"><Search size={16} /><input aria-label="Search datasets" value={search} placeholder="Search datasets…" onChange={event => { setSearch(event.target.value); setLimit(12) }} />{search && <button aria-label="Clear search" onClick={() => setSearch('')}><X size={14} /></button>}</div></div>
-      {datasets.length ? <><div className="table-wrap"><table><thead><tr><th>Dataset</th><th>Observations</th><th>Date range</th><th>Timestamp flags</th><th>Action</th></tr></thead><tbody>{datasets.slice(0, limit).map(item => <tr key={item.id}><td><div className="dataset-name"><span className="dataset-icon"><FileSpreadsheet size={18} /></span><div><strong>{item.name}</strong><small>{item.filename}</small></div></div></td><td data-label="Observations">{item.rows.toLocaleString()}</td><td data-label="Date range">{item.start && item.end ? `${item.start.slice(0, 10)} → ${item.end.slice(0, 10)}` : 'No time mapping'}</td><td data-label="Timestamp review"><span className={`quality-badge ${item.invalid_rows ? 'review' : ''}`}>{item.invalid_rows ? `${item.invalid_rows.toLocaleString()} flagged` : item.start ? 'None flagged' : 'Not mapped'}</span></td><td><button className="library-action" onClick={() => onDataset(item.id)} aria-label={`Analyze ${item.name}`}>Analyze <ArrowRight size={14} /></button></td></tr>)}</tbody></table></div>{datasets.length > limit && <button className="library-more" onClick={() => setLimit(limit + 12)}>Show more datasets ({datasets.length - limit} remaining)</button>}</> : <div className="library-empty"><Database size={28} /><h3>{search ? 'No matching datasets' : 'Your next discovery starts here'}</h3><p>{search ? 'Try a different name or filename.' : 'Import a CSV, spreadsheet, or JSON file to begin your analysis.'}</p><button className="button secondary" onClick={search ? () => setSearch('') : onImport}>{search ? 'Clear search' : 'Import your first dataset'}</button></div>}
+      {datasets.length ? <><div className="table-wrap"><table><thead><tr><th>Dataset</th><th>Observations</th><th>Date range</th><th>Timestamp flags</th><th>Action</th></tr></thead><tbody>{datasets.slice(0, limit).map(item => <tr key={item.id}><td><div className="dataset-name"><span className="dataset-icon"><FileSpreadsheet size={18} /></span><div><strong>{item.name}</strong><small>{item.filename}</small></div></div></td><td data-label="Observations">{item.rows.toLocaleString()}</td><td data-label="Date range">{dateRange(item)}</td><td data-label="Timestamp review"><span className={`quality-badge ${item.invalid_rows ? 'review' : ''}`}>{item.invalid_rows ? `${item.invalid_rows.toLocaleString()} flagged` : item.start ? 'None flagged' : 'Not mapped'}</span></td><td><button className="library-action" onClick={() => onDataset(item.id)} aria-label={`Analyze ${item.name}`}>Analyze <ArrowRight size={14} /></button></td></tr>)}</tbody></table></div>{datasets.length > limit && <button className="library-more" onClick={() => setLimit(limit + 12)}>Show more datasets ({datasets.length - limit} remaining)</button>}</> : <div className="library-empty"><Database size={28} /><h3>{search ? 'No matching datasets' : 'Your next discovery starts here'}</h3><p>{search ? 'Try a different name or filename.' : 'Import a CSV, spreadsheet, or JSON file to begin your analysis.'}</p><button className="button secondary" onClick={search ? () => setSearch('') : onImport}>{search ? 'Clear search' : 'Import your first dataset'}</button></div>}
     </section>
     <div className="research-principle"><ShieldCheck size={17} /><p><strong>Transparent by design.</strong> Original files stay unchanged. Statistical results expose sample sizes, assumptions, and effect sizes. Automated guidance is rule-based, with no external AI service connected.</p></div>
   </>

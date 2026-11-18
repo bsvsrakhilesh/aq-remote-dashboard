@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1.7
 FROM node:22-alpine AS build
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL} VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
 
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./

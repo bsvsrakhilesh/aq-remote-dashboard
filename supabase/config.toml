@@ -452,3 +452,6 @@ verify_jwt = false
 
 [functions.cleanup-expired-downloads]
 verify_jwt = false
+
+[functions.axiom-transfers]
+verify_jwt = false

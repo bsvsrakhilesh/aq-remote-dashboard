@@ -15,6 +15,7 @@ export interface Monitor {
   invalid_rows: number
   metrics: string[]
   imported?: boolean
+  timestamp_zone?: 'UTC' | null
 }
 
 export interface Catalog {
@@ -51,6 +52,7 @@ export interface TimeSeriesResponse {
   end: string
   total_points: number
   series: TimeSeries[]
+  timestamp_zone?: 'UTC' | null
 }
 
 export interface ColumnProfile {
@@ -60,7 +62,18 @@ export interface ColumnProfile {
   nulls_in_sample: number
 }
 
+export interface TransferSource {
+  job_id: string
+  kind: 'raw' | 'minute'
+  device: string
+  filename: string
+  bytes: number
+  sha256: string
+  captured_at: string
+}
+
 export interface ImportInspection {
+  source?: TransferSource
   upload_id: string
   filename: string
   size: number
@@ -83,6 +96,7 @@ export interface ImportedDataset {
   start: string | null
   end: string | null
   has_time?: boolean
+  timestamp_zone?: 'UTC' | null
   columns?: Array<{ name: string; type: string }>
   metrics: Array<{
     id: string
@@ -198,6 +212,7 @@ export interface TimeDiagnosticsResult {
 }
 
 export interface CollocationMemberConfiguration {
+  timezone?: 'UTC' | 'Asia/Kolkata' | null
   upload_id: string
   filename: string
   sheet: string | null
@@ -230,6 +245,7 @@ export interface CollocationResult {
     comparison_mode: 'ensemble' | 'reference'
     reference: string | null
     scale_type: 'ratio' | 'interval' | 'logarithmic' | 'other'
+    timestamp_zone?: 'UTC' | null
   }
   summary: {
     sensor_count: number

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -9,8 +10,9 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import least_squares
 
-from .import_service import import_service
+from .import_service import dashboard_timestamps, import_service
 from .models import CollocationAnalysisRequest, CollocationMember
+from .transfer_archive import source
 
 
 def _number(value: float | int | None, digits: int = 3) -> float | None:
@@ -318,7 +320,15 @@ class CollocationService:
             if member.time_column not in frame.columns:
                 raise ValueError(f"{member.filename}: time column was not found")
             values = values + " " + frame[member.time_column].astype("string")
-        return pd.to_datetime(values, errors="coerce", dayfirst=member.day_first, format="mixed")
+        if member.upload_id.startswith("axiom_"):
+            return dashboard_timestamps(frame, source(member.upload_id)[1], member.date_column, member.time_column)
+        timestamps = pd.to_datetime(values, errors="coerce", dayfirst=member.day_first, format="mixed",
+                                    utc=member.timezone == "UTC")
+        if member.timezone == "Asia/Kolkata":
+            if timestamps.dt.tz is not None:
+                raise ValueError("Select UTC or explicit offsets for an offset-aware source")
+            timestamps = timestamps.dt.tz_localize("Asia/Kolkata").dt.tz_convert("UTC")
+        return timestamps.dt.tz_localize(None) if member.timezone else timestamps
 
     def _prepare(
         self,
@@ -396,6 +406,9 @@ class CollocationService:
         if request.minimum_peer_count < 1:
             raise ValueError("Minimum peer count must be at least one")
         names = [member.sensor_name.strip() for member in request.members]
+        if any(member.upload_id.startswith("axiom_") for member in request.members):
+            if any(not member.upload_id.startswith("axiom_") and not member.timezone for member in request.members):
+                raise ValueError("Choose the source time zone for each external file before comparing with dashboard data")
         if any(not name for name in names) or len(set(names)) != len(names):
             raise ValueError("Give every sensor a unique name")
         references = [member for member in request.members if member.role == "reference"]
@@ -750,6 +763,14 @@ class CollocationService:
             overall_status = "Ready" if ready == len(sensor_results) else "Review needed"
 
         return {
+            "provenance": {
+                "software": os.getenv("AXIOM_BUILD_REVISION", "development"),
+                "configuration": request.model_dump(),
+                "dashboard_sources": [
+                    source(member.upload_id)[1] for member in request.members
+                    if member.upload_id.startswith("axiom_")
+                ],
+            },
             "study": {
                 "name": request.study_name,
                 "parameter": request.parameter_name,
@@ -757,6 +778,9 @@ class CollocationService:
                 "comparison_mode": request.comparison_mode,
                 "reference": reference_name,
                 "scale_type": request.scale_type,
+                "timestamp_zone": "UTC" if all(
+                    member.upload_id.startswith("axiom_") or member.timezone for member in request.members
+                ) else None,
             },
             "summary": {
                 "sensor_count": len(sensor_results),

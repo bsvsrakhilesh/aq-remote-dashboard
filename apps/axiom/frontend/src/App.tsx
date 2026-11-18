@@ -16,6 +16,8 @@ import {
   ArrowUpRight,
 } from 'lucide-react'
 import { getCatalog, getTimeSeries, type TimeSeriesQuery } from './api'
+import { privateWorkspaceUrl } from './deployment'
+import { formatIst, istIso, utcInstant } from './india-time'
 import { ImportDatasetDialog } from './components/ImportDatasetDialog'
 import { WorkspaceState } from './components/WorkspaceState'
 import { MonitorPicker } from './components/MonitorPicker'
@@ -45,14 +47,17 @@ const INTERVALS = [
   { value: '1d', label: '1 day' },
 ]
 
-function toLocalInput(value: Date | string) {
+function toLocalInput(value: Date | string, ist = false) {
+  if (ist) return istIso(value).slice(0, 16)
   const date = new Date(value)
   const pad = (number: number) => String(number).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-function apiDate(value: string) {
-  return value.length === 16 ? `${value}:00` : value
+function apiDate(value: string, ist = false) {
+  if (!value) return value
+  const clock = value.length === 16 ? `${value}:00` : value
+  return ist ? `${clock}+05:30` : clock
 }
 
 function formatNumber(value: number | null | undefined, digits = 1) {
@@ -79,7 +84,8 @@ function App() {
   const [applied, setApplied] = useState<TimeSeriesQuery | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [importOpen, setImportOpen] = useState(() => new URLSearchParams(window.location.search).get('import') === '1')
+  const [transferId, setTransferId] = useState(() => new URLSearchParams(window.location.search).get('transfer'))
+  const [importOpen, setImportOpen] = useState(() => !!transferId || new URLSearchParams(window.location.search).get('import') === '1')
   const [view, setView] = useState<WorkspaceView>(() => {
     const requested = new URLSearchParams(window.location.search).get('view')
     return requested === 'statistics' || requested === 'collocation' || requested === 'series' ? requested : 'overview'
@@ -122,20 +128,21 @@ function App() {
           setLoading(false)
           return
         }
-        const endDate = new Date(preferred.end!)
+        const ist = preferred.timestamp_zone === 'UTC'
+        const endDate = ist ? utcInstant(preferred.end!) : new Date(preferred.end!)
         const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000)
         const initialQuery: TimeSeriesQuery = {
           monitors: preferred ? [preferred.id] : [],
           metric: initialMetric,
-          start: apiDate(toLocalInput(startDate)),
-          end: apiDate(toLocalInput(endDate)),
+          start: apiDate(toLocalInput(startDate, ist), ist),
+          end: apiDate(toLocalInput(endDate, ist), ist),
           interval: '5m',
           smoothing: 1,
         }
         setSelected(initialQuery.monitors)
         setMetric(initialMetric)
-        setStart(toLocalInput(startDate))
-        setEnd(toLocalInput(endDate))
+        setStart(toLocalInput(startDate, ist))
+        setEnd(toLocalInput(endDate, ist))
         setApplied(initialQuery)
       })
       .catch((reason: Error) => { if (!controller.signal.aborted) { setError(reason.message); setLoading(false) } })
@@ -157,8 +164,9 @@ function App() {
   }, [applied, view])
 
   const selectedMetric = catalog?.metrics.find((item) => item.id === (loadedQuery?.metric ?? metric))
-  const invalidRange = !start || !end || new Date(start) >= new Date(end)
-  const pendingChanges = loadedQuery && JSON.stringify({ monitors: selected, metric, start: apiDate(start), end: apiDate(end), interval, smoothing }) !== JSON.stringify(loadedQuery)
+  const usesIst = !!catalog?.monitors.some((monitor) => selected.includes(monitor.id) && monitor.timestamp_zone === 'UTC')
+  const invalidRange = !start || !end || start > end || (start === end && !usesIst)
+  const pendingChanges = loadedQuery && JSON.stringify({ monitors: selected, metric, start: apiDate(start, usesIst), end: apiDate(end, usesIst), interval, smoothing }) !== JSON.stringify(loadedQuery)
 
   const combined = useMemo(() => {
     const populated = data?.series.filter((series) => series.stats.points > 0) ?? []
@@ -179,8 +187,8 @@ function App() {
     setApplied({
       monitors: selected,
       metric,
-      start: apiDate(start),
-      end: apiDate(end),
+      start: apiDate(start, usesIst),
+      end: apiDate(end, usesIst),
       interval,
       smoothing,
     })
@@ -189,12 +197,13 @@ function App() {
   const setPreset = (label: string, hours: number | null) => {
     if (!catalog?.range.start || !catalog.range.end) return
     const members = catalog.monitors.filter(item => selected.includes(item.id) && item.start && item.end)
-    const endDate = new Date(members.length ? Math.max(...members.map(item => new Date(item.end!).getTime())) : catalog.range.end)
+    const clock = (value: string) => usesIst ? utcInstant(value).getTime() : Date.parse(value)
+    const endDate = new Date(members.length ? Math.max(...members.map(item => clock(item.end!))) : clock(catalog.range.end))
     const startDate = hours == null
-      ? new Date(members.length ? Math.min(...members.map(item => new Date(item.start!).getTime())) : catalog.range.start)
+      ? new Date(members.length ? Math.min(...members.map(item => clock(item.start!))) : clock(catalog.range.start))
       : new Date(endDate.getTime() - hours * 60 * 60 * 1000)
-    setStart(toLocalInput(startDate))
-    setEnd(toLocalInput(endDate))
+    setStart(toLocalInput(startDate, usesIst))
+    setEnd(toLocalInput(endDate, usesIst))
     setActivePreset(label)
   }
 
@@ -215,10 +224,13 @@ function App() {
 
   const exportCsv = () => {
     if (!data) return
-    const rows = ['monitor,timestamp_source_clock,value,metric,unit']
+    const ist = data.timestamp_zone === 'UTC'
+    const rows = [ist ? 'monitor,timestamp_ist,timestamp_utc,value,metric,unit' : 'monitor,timestamp_source_clock,value,metric,unit']
     data.series.forEach((series) => {
       series.points.forEach((point) => {
-        rows.push([series.monitor_name, new Date(point.timestamp).toISOString().replace('Z', ''), point.value, data.metric, data.unit].map(csvCell).join(','))
+        const utc = new Date(point.timestamp).toISOString()
+        const timestamps = ist ? [istIso(point.timestamp), utc] : [utc.replace('Z', '')]
+        rows.push([series.monitor_name, ...timestamps, point.value, data.metric, data.unit].map(csvCell).join(','))
       })
     })
     downloadFile(`axiom-${loadedQuery?.metric}-${data.start.slice(0, 10)}.csv`, rows.join('\r\n'), 'text/csv;charset=utf-8')
@@ -231,8 +243,9 @@ function App() {
     navigate('statistics')
     const firstMetric = dataset.metrics[0]?.id
     if (!firstMetric || !dataset.start || !dataset.end) return
-    const nextStart = toLocalInput(dataset.start)
-    const nextEnd = toLocalInput(dataset.end)
+    const ist = dataset.timestamp_zone === 'UTC'
+    const nextStart = toLocalInput(dataset.start, ist)
+    const nextEnd = toLocalInput(dataset.end, ist)
     setSelected([dataset.id])
     setMetric(firstMetric)
     setStart(nextStart)
@@ -243,8 +256,8 @@ function App() {
     setApplied({
       monitors: [dataset.id],
       metric: firstMetric,
-      start: apiDate(nextStart),
-      end: apiDate(nextEnd),
+      start: apiDate(nextStart, ist),
+      end: apiDate(nextEnd, ist),
       interval: '5m',
       smoothing: 1,
     })
@@ -397,7 +410,10 @@ function App() {
           <div className="card-heading">
             <div>
               <h2>{data?.metric ?? selectedMetric?.label ?? 'Measurements'}</h2>
-              <p>{data ? `${new Date(data.start).toLocaleDateString()} – ${new Date(data.end).toLocaleDateString()}` : 'Selected time range'} · Source clock time</p>
+              <p>{data?.timestamp_zone === 'UTC'
+                ? `${formatIst(data.start)} – ${formatIst(data.end)}`
+                : data ? `${new Date(data.start).toLocaleDateString()} – ${new Date(data.end).toLocaleDateString()} · Source clock time`
+                  : usesIst ? 'Selected time range · IST' : 'Selected time range · Source clock time'}</p>
             </div>
             <div className="chart-meta">
               <span><span className="live-dot" /> {loading ? 'Loading data' : error ? 'Update failed' : data ? 'Data ready' : 'No data'}</span>
@@ -456,13 +472,22 @@ function App() {
           <Suspense fallback={<div className="analysis-loader" role="status"><LoaderCircle className="spin" />Opening statistics…</div>}><StatisticsWorkspace key={statisticsDataset ?? 'statistics'} catalog={catalog} preferredDataset={statisticsDataset} /></Suspense>
         ) : !error && <div className="analysis-loader"><LoaderCircle className="spin" /><span>Loading datasets…</span></div>}</div>}
         <footer className="footer">
+          {privateWorkspaceUrl && <a href={privateWorkspaceUrl}>Open private workspace</a>}
           <span><Database size={13} /> {catalog ? `${catalog.total_rows.toLocaleString()} rows indexed` : 'Indexing data'}</span>
           <span>{catalog?.invalid_rows ? `${catalog.invalid_rows.toLocaleString()} timestamp anomalies detected` : 'Schema validation active'}</span>
         </footer>
       </main>
       <ImportDatasetDialog
+        key={transferId ?? 'file'}
         open={importOpen}
-        onClose={() => setImportOpen(false)}
+        transferId={transferId}
+        onClose={() => {
+          setImportOpen(false)
+          setTransferId(null)
+          const url = new URL(window.location.href)
+          url.searchParams.delete('transfer')
+          window.history.replaceState({}, '', url)
+        }}
         onImported={handleImported}
       />
     </div>

@@ -20,6 +20,7 @@ from .config import (
     STAGING_DIR,
 )
 from .models import ImportConfig
+from .transfer_archive import require_space, source
 
 ALLOWED_EXTENSIONS = {".csv", ".tsv", ".txt", ".json", ".xlsx", ".xls"}
 EXCEL_EXTENSIONS = {".xlsx", ".xls"}
@@ -42,7 +43,31 @@ STANDARD_METRICS = {
     "humidity": ("humidity", "Humidity", "% RH"),
     "humidityrhpercent": ("humidity", "Humidity", "% RH"),
     "particlesize": ("particle_size", "Particle size", "µm"),
+    "pm1ugm3": ("pm1", "PM1.0", "µg/m³"),
+    "pm25ugm3": ("pm25", "PM2.5", "µg/m³"),
+    "pm10ugm3": ("pm10", "PM10", "µg/m³"),
+    "temperaturec": ("temperature", "Temperature", "°C"),
+    "rhpercent": ("humidity", "Humidity", "% RH"),
+    "co2ppm": ("co2", "CO₂", "ppm"),
 }
+
+
+def dashboard_timestamps(
+    frame: pd.DataFrame, metadata: dict, date_column: str, time_column: str | None
+) -> pd.Series:
+    if metadata["kind"] == "minute":
+        if date_column != "timestamp_utc" or time_column:
+            raise ValueError("Use timestamp_utc as the timestamp for dashboard minute data")
+        return pd.to_datetime(frame[date_column], errors="coerce", utc=True).dt.tz_localize(None)
+    if "Record" in frame.columns or "UptimeMs" in frame.columns:
+        raise ValueError("This recovery file needs a verified clock reconstruction before analysis")
+    if date_column != "Date" or time_column != "Time":
+        raise ValueError("Map the original logger Date and Time columns to use IST")
+    values = frame["Date"].astype("string") + " " + frame["Time"].astype("string")
+    return (
+        pd.to_datetime(values, errors="coerce", format="%d-%m-%Y %H:%M:%S")
+        .dt.tz_localize("Asia/Kolkata").dt.tz_convert("UTC").dt.tz_localize(None)
+    )
 
 
 def _slug(value: str) -> str:
@@ -71,6 +96,8 @@ class ImportService:
 
     @staticmethod
     def _stage_path(upload_id: str) -> Path:
+        if upload_id.startswith("axiom_"):
+            return source(upload_id)[0]
         if not re.fullmatch(r"[0-9a-f]{32}", upload_id):
             raise ValueError("Invalid upload session")
         matches = list(STAGING_DIR.glob(f"{upload_id}.*"))
@@ -137,7 +164,7 @@ class ImportService:
     def _suggestions(columns: list[dict[str, Any]]) -> dict[str, Any]:
         names = {item["name"]: _normalized(item["name"]) for item in columns}
         timestamp = next(
-            (name for name, normalized in names.items() if normalized in {"timestamp", "datetime", "dateandtime"}),
+            (name for name, normalized in names.items() if normalized in {"timestamp", "datetime", "dateandtime", "timestamputc"}),
             None,
         )
         date = timestamp or next(
@@ -200,7 +227,7 @@ class ImportService:
         if len(set(frame.columns)) != len(frame.columns):
             raise ValueError("Column names must be unique")
         columns = [self._column_profile(frame[column]) for column in frame.columns]
-        return {
+        result = {
             "upload_id": upload_id,
             "sheets": sheets,
             "selected_sheet": sheet or (sheets[0] if sheets else None),
@@ -208,6 +235,10 @@ class ImportService:
             "sample_rows": int(len(frame)),
             "suggestions": self._suggestions(columns),
         }
+        if upload_id.startswith("axiom_"):
+            _, metadata = source(upload_id)
+            result.update(filename=metadata["filename"], size=metadata["bytes"], source=metadata)
+        return result
 
     def load_staged_frame(self, upload_id: str, sheet: str | None = None) -> pd.DataFrame:
         """Read a staged upload for a downstream, user-confirmed workflow."""
@@ -235,6 +266,9 @@ class ImportService:
             raise ValueError("Enter a dataset name")
 
         path = self._stage_path(config.upload_id)
+        metadata = source(config.upload_id)[1] if config.upload_id.startswith("axiom_") else None
+        if metadata:
+            require_space(IMPORTED_DIR, metadata["bytes"] * 3)
         frame = self._read_table(path, sheet=config.sheet)
         frame.columns = [str(column).strip() for column in frame.columns]
         required = [*[item.column for item in config.measurements]]
@@ -247,7 +281,11 @@ class ImportService:
             raise ValueError(f"Columns not found: {', '.join(missing)}")
 
         timestamps: pd.Series | None = None
-        if config.date_column:
+        if metadata:
+            timestamps = dashboard_timestamps(frame, metadata, config.date_column or "", config.time_column)
+            if timestamps.notna().sum() == 0:
+                raise ValueError("No verified timestamps were found in this snapshot")
+        elif config.date_column:
             date_values = frame[config.date_column].astype("string")
             if config.time_column:
                 date_values = date_values + " " + frame[config.time_column].astype("string")
@@ -258,7 +296,12 @@ class ImportService:
                 format="mixed",
             )
 
-        dataset_id = f"imported_{_slug(config.dataset_name)}_{uuid.uuid4().hex[:8]}"
+        if metadata:
+            configuration = config.model_dump(exclude={"upload_id", "source_filename"})
+            fingerprint = hashlib.sha256(json.dumps(configuration, sort_keys=True).encode()).hexdigest()
+            dataset_id = f"imported_{metadata['job_id'].replace('-', '')}_{fingerprint[:16]}"
+        else:
+            dataset_id = f"imported_{_slug(config.dataset_name)}_{uuid.uuid4().hex[:8]}"
         normalized = pd.DataFrame(index=frame.index)
         if timestamps is not None:
             normalized["timestamp"] = timestamps
@@ -306,7 +349,12 @@ class ImportService:
         if timestamps is not None:
             normalized["timestamp"] = normalized["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
         destination = IMPORTED_DIR / f"{dataset_id}.csv"
-        normalized.to_csv(destination, index=False)
+        temporary_csv = destination.with_suffix(f".{uuid.uuid4().hex}.tmp")
+        try:
+            normalized.to_csv(temporary_csv, index=False)
+            temporary_csv.replace(destination)
+        finally:
+            temporary_csv.unlink(missing_ok=True)
 
         dataset = {
             "id": dataset_id,
@@ -322,10 +370,16 @@ class ImportService:
             "metrics": metric_entries,
             "sheet": config.sheet,
         }
+        if metadata:
+            dataset["source"] = metadata
+            dataset["timestamp_zone"] = "UTC"
+            dataset["import_config"] = configuration
         # Serialize the read/modify/write operation within this local API process.
         # Atomic replacement also prevents readers seeing partially written JSON.
         with _REGISTRY_LOCK:
             registry = load_registry()
+            if existing := next((item for item in registry["datasets"] if item["id"] == dataset_id), None):
+                return {"dataset": existing}
             registry["datasets"].append(dataset)
             REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
             temporary = REGISTRY_PATH.with_suffix(f".{uuid.uuid4().hex}.tmp")
@@ -334,7 +388,8 @@ class ImportService:
                 temporary.replace(REGISTRY_PATH)
             finally:
                 temporary.unlink(missing_ok=True)
-        path.unlink(missing_ok=True)
+        if not metadata:
+            path.unlink(missing_ok=True)
         return {"dataset": dataset}
 
 

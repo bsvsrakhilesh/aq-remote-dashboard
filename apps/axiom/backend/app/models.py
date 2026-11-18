@@ -32,6 +32,7 @@ class TimeSeriesResponse(BaseModel):
     end: str
     total_points: int
     series: list[TimeSeries]
+    timestamp_zone: Literal["UTC"] | None = None
 
 
 class MeasurementMapping(BaseModel):
@@ -73,6 +74,7 @@ class CollocationMember(BaseModel):
     temperature_column: str | None = None
     humidity_column: str | None = None
     day_first: bool = True
+    timezone: Literal["UTC", "Asia/Kolkata"] | None = None
     role: Literal["sensor", "reference"] = "sensor"
 
 

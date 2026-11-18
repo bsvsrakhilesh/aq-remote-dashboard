@@ -206,6 +206,7 @@ class DataService:
                     "invalid_rows": dataset.get("invalid_rows", 0),
                     "metrics": [metric["id"] for metric in dataset["metrics"]],
                     "imported": True,
+                    "timestamp_zone": dataset.get("timestamp_zone"),
                 }
             )
 
@@ -373,23 +374,37 @@ class DataService:
             raise ValueError("A maximum of 10 monitors can be compared")
         if len(set(monitor_ids)) != len(monitor_ids):
             raise ValueError("Choose distinct monitors")
-        if start and end and pd.Timestamp(start).tz_localize(None) >= pd.Timestamp(end).tz_localize(None):
-            raise ValueError("The start date must be before the end date")
         if not 1 <= smoothing <= 60:
             raise ValueError("Smoothing must be between 1 and 60 points")
 
         catalog_by_id = {item["id"]: item for item in self.catalog()["monitors"]}
+        zones = {catalog_by_id.get(monitor, {}).get("timestamp_zone") for monitor in monitor_ids}
+        uses_utc = zones == {"UTC"}
+
+        def boundary(value: datetime | None) -> pd.Timestamp | None:
+            if value is None:
+                return None
+            stamp = pd.Timestamp(value)
+            if uses_utc and stamp.tz is not None:
+                stamp = stamp.tz_convert("UTC")
+            return stamp.tz_localize(None)
+
+        after, before = boundary(start), boundary(end)
+        if after is not None and before is not None and (after > before or (after == before and not uses_utc)):
+            raise ValueError("The start date must be before the end date")
+        if unknown := next((monitor for monitor in monitor_ids if monitor not in catalog_by_id), None):
+            raise ValueError(f"Unknown monitor: {unknown}")
+        if len(zones) > 1:
+            raise ValueError("Choose sources with the same clock, or align their time zones in Collocation")
         response_series = []
         actual_interval = interval
 
         for monitor_id in monitor_ids:
-            if monitor_id not in catalog_by_id:
-                raise ValueError(f"Unknown monitor: {monitor_id}")
             frame = self._read_metric(monitor_id, metric)
-            if start:
-                frame = frame[frame["timestamp"] >= pd.Timestamp(start).tz_localize(None)]
-            if end:
-                frame = frame[frame["timestamp"] <= pd.Timestamp(end).tz_localize(None)]
+            if after is not None:
+                frame = frame[frame["timestamp"] >= after]
+            if before is not None:
+                frame = frame[frame["timestamp"] <= before]
 
             frame = frame[np.isfinite(frame["value"])]
             original = frame
@@ -442,6 +457,7 @@ class DataService:
             "start": fallback_start.isoformat(),
             "end": fallback_end.isoformat(),
             "total_points": sum(item["stats"]["points"] for item in response_series),
+            "timestamp_zone": "UTC" if uses_utc else None,
             "series": response_series,
         }
 

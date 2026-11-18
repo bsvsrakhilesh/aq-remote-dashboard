@@ -1,5 +1,8 @@
 import { Database, Download, FileText, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { AxiomQueue } from '../components/AxiomTransfers'
+import { useAxiomSend } from '../hooks/useAxiomSend'
+import { axiomEnabled, axiomMaxBytes } from '../services/axiom'
 import { FileTransferQueue } from '../components/FileTransferQueue'
 import { useAllFiles } from '../hooks/useData'
 import { useFileTransfers } from '../hooks/useFileTransfers'
@@ -13,6 +16,7 @@ export function FilesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const { data, loading, error, reload } = useAllFiles()
   const { transfers, requestFiles, cancel, dismiss } = useFileTransfers()
+  const axiom = useAxiomSend()
   const { preferences } = usePreferences()
   const devices = useMemo(
     () =>
@@ -166,13 +170,30 @@ export function FilesPage() {
                     </span>
                     <span role="cell">{formatFileCreatedAt(file.createdAt)}</span>
                     <span role="cell">{formatFileSize(file.size)}</span>
-                    <button
-                      className="button secondary small"
-                      disabled={readOnlyMode || unavailable}
-                      onClick={() => requestFiles([{ file, device }])}
-                    >
-                      <Download size={15} /> {offline ? 'Offline' : file.size === 0 ? 'Empty file' : 'Request'}
-                    </button>
+                    <span role="cell" className="axiom-file-actions">
+                      <button
+                        className="button secondary small"
+                        disabled={readOnlyMode || unavailable}
+                        onClick={() => requestFiles([{ file, device }])}
+                      >
+                        <Download size={15} /> {offline ? 'Offline' : file.size === 0 ? 'Empty file' : 'Request'}
+                      </button>
+                      {axiomEnabled &&
+                        /\.csv$/i.test(file.filename) &&
+                        file.size > 0 &&
+                        (file.size > axiomMaxBytes ? (
+                          <small>Download locally to import files over 40 MiB.</small>
+                        ) : (
+                          <button
+                            className="button secondary small"
+                            type="button"
+                            disabled={axiom.busy}
+                            onClick={() => void axiom.send({ kind: 'raw', device_id: device.id, file_id: file.id })}
+                          >
+                            Send to Axiom
+                          </button>
+                        ))}
+                    </span>
                   </div>
                 )
               })}
@@ -189,6 +210,12 @@ export function FilesPage() {
           </div>
         )}
       </section>
+      {axiom.notice && (
+        <p className="inline-notice" role={axiom.failed ? 'alert' : 'status'}>
+          {axiom.notice}
+        </p>
+      )}
+      {axiomEnabled && <AxiomQueue revision={axiom.revision} />}
       <FileTransferQueue
         transfers={transfers}
         onCancel={(key, requestId) => void cancel(key, requestId)}

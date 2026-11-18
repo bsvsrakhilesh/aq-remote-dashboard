@@ -38,6 +38,7 @@ The app uses `HashRouter`, so deep links work on GitHub Pages. The Vite build au
 - [ESP32 API and firmware integration](docs/ESP32_INTEGRATION.md)
 - [Security model](docs/SECURITY.md)
 - [One-minute CSV history](docs/MINUTE_HISTORY.md)
+- [Axiom research workspace integration](docs/AXIOM_INTEGRATION.md)
 - [Research workspace features and verification](docs/WORKSPACE_UPGRADE.md)
 - [Dashboard experience plan](docs/DASHBOARD_EXPERIENCE_PLAN.md)
 

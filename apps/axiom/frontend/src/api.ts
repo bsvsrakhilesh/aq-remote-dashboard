@@ -1,4 +1,4 @@
-import { apiUrl } from './deployment'
+import { apiFetch } from './auth-client'
 import type {
   Catalog,
   CollocationMemberConfiguration,
@@ -8,6 +8,7 @@ import type {
   DistributionResult,
   ImportedDataset,
   ImportInspection,
+  TransferSource,
   DriftComparison,
   SavedCollocationSession,
   StatisticalProfile,
@@ -26,13 +27,21 @@ async function responseError(response: Response): Promise<Error> {
 }
 
 async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(apiUrl(path), { signal })
+  const response = await apiFetch(path, { signal })
   if (!response.ok) throw await responseError(response)
   return response.json() as Promise<T>
 }
 
 export function getCatalog(signal?: AbortSignal) {
   return request<Catalog>('/api/catalog', signal)
+}
+
+export function listTransfers(signal?: AbortSignal) {
+  return request<TransferSource[]>('/api/transfers', signal)
+}
+
+export function inspectTransfer(jobId: string, signal?: AbortSignal) {
+  return request<ImportInspection>(`/api/transfers/${encodeURIComponent(jobId)}/inspect`, signal)
 }
 
 export interface TimeSeriesQuery {
@@ -58,7 +67,7 @@ export function getTimeSeries(query: TimeSeriesQuery, signal?: AbortSignal) {
 export async function inspectUpload(file: File, signal?: AbortSignal) {
   const body = new FormData()
   body.append('file', file)
-  const response = await fetch(apiUrl('/api/import/inspect'), { method: 'POST', body, signal })
+  const response = await apiFetch('/api/import/inspect', { method: 'POST', body, signal })
   if (!response.ok) {
     throw await responseError(response)
   }
@@ -82,7 +91,7 @@ export interface ImportConfiguration {
 }
 
 export async function commitImport(configuration: ImportConfiguration) {
-  const response = await fetch(apiUrl('/api/import/commit'), {
+  const response = await apiFetch('/api/import/commit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(configuration),
@@ -119,7 +128,7 @@ export interface StatisticalTestConfiguration {
 }
 
 export async function runStatisticalTest(configuration: StatisticalTestConfiguration, signal?: AbortSignal) {
-  const response = await fetch(apiUrl('/api/statistics/test'), {
+  const response = await apiFetch('/api/statistics/test', {
     method: 'POST',
     signal,
     headers: { 'Content-Type': 'application/json' },
@@ -160,7 +169,7 @@ export interface CollocationAnalysisConfiguration {
 }
 
 export async function analyzeCollocation(configuration: CollocationAnalysisConfiguration) {
-  const response = await fetch(apiUrl('/api/collocation/analyze'), {
+  const response = await apiFetch('/api/collocation/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(configuration),
@@ -181,7 +190,7 @@ export async function saveCollocationSession(configuration: {
   environment: string
   result: CollocationResult
 }) {
-  const response = await fetch(apiUrl('/api/collocation/sessions'), {
+  const response = await apiFetch('/api/collocation/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(configuration),

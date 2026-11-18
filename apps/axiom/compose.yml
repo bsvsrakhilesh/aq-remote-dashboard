@@ -5,10 +5,17 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        AXIOM_BUILD_REVISION: ${AXIOM_BUILD_REVISION:-development}
     environment:
       AXIOM_APP_DATA_DIR: /data/state
       AXIOM_DATA_DIR: /data/input
       AXIOM_MAX_UPLOAD_BYTES: ${AXIOM_MAX_UPLOAD_BYTES:-104857600}
+      AXIOM_REQUIRE_AUTH: ${AXIOM_REQUIRE_AUTH:-false}
+      AXIOM_SUPABASE_URL: ${AXIOM_SUPABASE_URL:-}
+      AXIOM_SUPABASE_ANON_KEY: ${AXIOM_SUPABASE_ANON_KEY:-}
+      AXIOM_OWNER_ID: ${AXIOM_OWNER_ID:-}
+      AXIOM_CORS_ORIGINS: ${AXIOM_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
     volumes:
       - type: bind
         source: ${AXIOM_INPUT_DIR:-.}
@@ -41,11 +48,14 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${AXIOM_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${AXIOM_SUPABASE_ANON_KEY:-}
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - "${AXIOM_PORT:-3000}:8080"
+      - "127.0.0.1:${AXIOM_PORT:-3000}:8080"
     cap_drop:
       - ALL
     security_opt:
@@ -57,6 +67,32 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  worker:
+    profiles: [dashboard]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-m", "backend.app.transfer_worker"]
+    healthcheck:
+      disable: true
+    environment:
+      AXIOM_APP_DATA_DIR: /data/state
+      AXIOM_SUPABASE_URL: ${AXIOM_SUPABASE_URL:-}
+      AXIOM_WORKER_SECRET: ${AXIOM_WORKER_SECRET:-}
+    volumes:
+      - axiom-state:/data/state
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
     logging:
       driver: json-file
       options:

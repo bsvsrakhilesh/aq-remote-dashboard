@@ -29,9 +29,7 @@ Deno.serve(async (request) => {
   if (!download.total_bytes || Number(object.size) !== Number(download.total_bytes))
     return json(request, { ok: false, error: 'size_mismatch' }, 409)
   const now = new Date()
-  // The automatic worker runs every 15 minutes. Keep its object available
-  // through several coordinator ticks; manual download links still last 15.
-  const readyMinutes = download.request_kind === 'minute_history' ? 60 : 15
+  const readyMinutes = download.request_kind === 'axiom' ? 120 : download.request_kind === 'minute_history' ? 60 : 15
   const expires = new Date(now.getTime() + readyMinutes * 60 * 1000).toISOString()
   const { data: updated, error } = await auth.db
     .from('download_requests')

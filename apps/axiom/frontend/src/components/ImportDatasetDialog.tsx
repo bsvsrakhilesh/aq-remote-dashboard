@@ -10,11 +10,15 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react'
-import { commitImport, inspectSheet, inspectUpload } from '../api'
+import { commitImport, inspectSheet, inspectTransfer, inspectUpload } from '../api'
+import { privateWorkspaceUrl } from '../deployment'
+import { formatIst } from '../india-time'
 import type { ImportedDataset, ImportInspection } from '../types'
+import { DashboardSources } from './DashboardSources'
 
 interface Props {
   open: boolean
+  transferId?: string | null
   onClose: () => void
   onImported: (dataset: ImportedDataset) => void | Promise<void>
 }
@@ -36,7 +40,7 @@ function formatBytes(bytes: number) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
-export function ImportDatasetDialog({ open, onClose, onImported }: Props) {
+export function ImportDatasetDialog({ open, onClose, onImported, transferId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
   const closeRef = useRef(onClose)
@@ -53,6 +57,25 @@ export function ImportDatasetDialog({ open, onClose, onImported }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [imported, setImported] = useState<ImportedDataset | null>(null)
   loadingRef.current = loading
+
+  useEffect(() => {
+    if (!open || !transferId) return
+    const controller = new AbortController()
+    setLoading(true)
+    inspectTransfer(transferId, controller.signal).then((next) => {
+      if (controller.signal.aborted) return
+      setInspection(next)
+      setDatasetName(filenameWithoutExtension(next.filename ?? 'Logger snapshot'))
+      setDateColumn(next.suggestions.date_column ?? '')
+      setTimeColumn(next.suggestions.time_column ?? '')
+      setMeasurements(next.suggestions.measurements.map((column) => ({ column, label: column, unit: '' })))
+    }).catch((reason: Error) => {
+      if (!controller.signal.aborted) setError(reason.message)
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false)
+    })
+    return () => controller.abort()
+  }, [open, transferId])
 
   useEffect(() => {
     if (!open) return
@@ -133,6 +156,20 @@ export function ImportDatasetDialog({ open, onClose, onImported }: Props) {
     }
   }
 
+  const loadTransfer = async (id: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await inspectTransfer(id)
+      applyInspection(result)
+      setDatasetName(filenameWithoutExtension(result.filename))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The snapshot could not be opened')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const toggleMeasurement = (column: string) => {
     const existing = measurements.find((item) => item.column === column)
     if (existing) {
@@ -190,6 +227,7 @@ export function ImportDatasetDialog({ open, onClose, onImported }: Props) {
         </header>
 
         {error && <div className="import-error" role="alert"><AlertCircle size={15} />{error}</div>}
+        {error && transferId && privateWorkspaceUrl && <p><a href={privateWorkspaceUrl}>Open this snapshot in the private workspace</a></p>}
 
         {imported ? (
           <div className="import-success">
@@ -197,7 +235,10 @@ export function ImportDatasetDialog({ open, onClose, onImported }: Props) {
             <h3>{imported.name}</h3>
             <p>{imported.rows.toLocaleString()} rows and {imported.columns?.length ?? 0} columns are ready for analysis.</p>
             <div className="success-summary">
-              <div><span>Time range</span><strong>{imported.start && imported.end ? `${new Date(imported.start).toLocaleDateString()} – ${new Date(imported.end).toLocaleDateString()}` : 'Not configured'}</strong></div>
+              <div><span>Time range</span><strong>{imported.start && imported.end
+                ? imported.timestamp_zone === 'UTC' ? `${formatIst(imported.start)} – ${formatIst(imported.end)}`
+                  : `${new Date(imported.start).toLocaleDateString()} – ${new Date(imported.end).toLocaleDateString()}`
+                : 'Not configured'}</strong></div>
               <div><span>Excluded rows</span><strong>{imported.invalid_rows.toLocaleString()}</strong></div>
             </div>
             <button className="button primary success-action" type="button" disabled={loading} onClick={async () => { setLoading(true); setError(null); try { await onImported(imported); reset(); onClose() } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not refresh the workspace. Try again.') } finally { setLoading(false) } }}>
@@ -206,6 +247,7 @@ export function ImportDatasetDialog({ open, onClose, onImported }: Props) {
           </div>
         ) : !inspection ? (
           <div className="upload-stage">
+            <DashboardSources disabled={loading} onChoose={(id) => void loadTransfer(id)} />
             <input
               ref={fileInputRef}
               type="file"
@@ -239,6 +281,11 @@ export function ImportDatasetDialog({ open, onClose, onImported }: Props) {
           </div>
         ) : (
           <div className="mapping-stage">
+            {inspection.source && <p>
+              {inspection.source.device} · {inspection.source.kind === 'raw'
+                ? 'Original SD snapshot. Logger time is IST.'
+                : 'Minute averages. Axiom displays the recorded times in IST.'}
+            </p>}
             <div className="file-summary">
               <span className="file-type-icon"><FileSpreadsheet size={18} /></span>
               <div><strong>{inspection.filename}</strong><span>{formatBytes(inspection.size)} · {inspection.columns.length} columns detected</span></div>

@@ -4,7 +4,11 @@ from typing import Annotated
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+from starlette.requests import Request
 
+from .auth import make_validator
 from .collocation_service import collocation_service
 from .collocation_store import collocation_store
 from .config import CORS_ORIGINS
@@ -18,12 +22,31 @@ from .models import (
     TimeSeriesResponse,
 )
 from .statistics_service import statistics_service
+from .transfer_archive import INBOX, manifest
 
 app = FastAPI(
     title="Axiom API",
     version="0.1.0",
     description="General-purpose statistical and time-series analysis API",
 )
+
+validate_access = make_validator()
+
+
+@app.middleware("http")
+async def require_dashboard_owner(request: Request, call_next):
+    if validate_access is not None and request.url.path != "/api/health":
+        try:
+            allowed = await run_in_threadpool(validate_access, request.headers.get("authorization", ""))
+        except OSError:
+            return JSONResponse({"detail": "Sign-in service is temporarily unavailable"}, status_code=503)
+        if not allowed:
+            return JSONResponse({"detail": "Sign in with the authorized dashboard account"}, status_code=401)
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,6 +66,26 @@ def health() -> dict[str, str]:
 @app.get("/api/catalog")
 def catalog() -> dict:
     return data_service.catalog()
+
+
+@app.get("/api/transfers")
+def list_transfers() -> list[dict]:
+    results = []
+    for item in INBOX.iterdir() if INBOX.exists() else []:
+        try:
+            if snapshot := manifest(item.name):
+                results.append(snapshot)
+        except (OSError, ValueError):
+            continue
+    return sorted(results, key=lambda item: item["captured_at"], reverse=True)[:100]
+
+
+@app.get("/api/transfers/{job_id}/inspect")
+def inspect_transfer(job_id: str) -> dict:
+    try:
+        return import_service.inspect(f"axiom_{job_id}")
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/import/inspect")

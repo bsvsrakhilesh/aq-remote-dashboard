@@ -11,6 +11,8 @@ if (configuredBase) {
 }
 
 export const needsBackendSetup = import.meta.env.VITE_STATIC_HOST === 'true' && !configuredBase
+export const privateWorkspaceUrl = configuredBase && import.meta.env.VITE_STATIC_HOST === 'true'
+  ? `${configuredBase}/${window.location.search}` : ''
 
 /** API base excludes /api; all endpoint paths include it explicitly. */
 export function apiUrl(path: string): string {

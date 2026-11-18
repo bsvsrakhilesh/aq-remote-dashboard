@@ -25,6 +25,7 @@ import {
   getCollocationSessions,
   getDriftComparison,
   inspectSheet,
+  inspectTransfer,
   inspectUpload,
   saveCollocationSession,
 } from '../api'
@@ -36,7 +37,9 @@ import type {
   SavedCollocationSession,
 } from '../types'
 import { CollocationChart } from './CollocationChart'
+import { DashboardSources } from './DashboardSources'
 import { csvCell, downloadFile } from '../export'
+import { formatIst, istIso } from '../india-time'
 
 interface SensorFile {
   key: string
@@ -49,6 +52,7 @@ interface SensorFile {
   temperatureColumn: string
   humidityColumn: string
   dayFirst: boolean
+  timezone: '' | 'UTC' | 'Asia/Kolkata'
   role: 'sensor' | 'reference'
 }
 
@@ -72,8 +76,10 @@ function recommendedColumn(inspection: ImportInspection) {
 
 function resultCsv(result: CollocationResult) {
   const sensors = result.pairwise.sensors
-  const rows = [`timestamp,consensus,${sensors.map(csvCell).join(',')}`]
+  const ist = result.study.timestamp_zone === 'UTC'
+  const rows = [`${ist ? 'timestamp_ist,timestamp_utc' : 'timestamp'},consensus,${sensors.map(csvCell).join(',')}`]
   result.series.forEach((point) => rows.push([
+    ...(ist ? [istIso(point.timestamp)] : []),
     new Date(point.timestamp).toISOString(),
     point.consensus ?? '',
     ...sensors.map((sensor) => point.values[sensor] ?? ''),
@@ -84,8 +90,10 @@ function resultCsv(result: CollocationResult) {
 function correctedCsv(result: CollocationResult, approved: Set<string>) {
   const sensors = result.pairwise.sensors.filter((sensor) => approved.has(sensor))
   const headers = sensors.flatMap((sensor) => [`${sensor} raw`, `${sensor} corrected`])
-  const rows = [`timestamp,consensus,${headers.map(csvCell).join(',')}`]
+  const ist = result.study.timestamp_zone === 'UTC'
+  const rows = [`${ist ? 'timestamp_ist,timestamp_utc' : 'timestamp'},consensus,${headers.map(csvCell).join(',')}`]
   result.series.forEach((point) => rows.push([
+    ...(ist ? [istIso(point.timestamp)] : []),
     new Date(point.timestamp).toISOString(),
     point.consensus ?? '',
     ...sensors.flatMap((sensor) => [point.values[sensor] ?? '', point.corrected[sensor] ?? '']),
@@ -168,17 +176,16 @@ export function CollocationWorkspace() {
     return () => controller.abort()
   }, [])
 
-  const addFiles = async (incoming: FileList | File[]) => {
-    const selected = Array.from(incoming)
+  const addSources = async (selected: Array<{ inspect: () => Promise<ImportInspection>; filename?: string }>) => {
     if (!selected.length || running || loadingFiles) return
     setError(null)
     setLoadingFiles((count) => count + selected.length)
-    const settled = await Promise.allSettled(selected.map(async (file, index) => {
-      const inspection = await inspectUpload(file)
+    const settled = await Promise.allSettled(selected.map(async ({ inspect, filename }) => {
+      const inspection = await inspect()
       return {
-        key: `${inspection.upload_id}-${index}`,
+        key: inspection.source ? inspection.upload_id : crypto.randomUUID(),
         inspection,
-        sensorName: cleanName(file.name),
+        sensorName: inspection.source?.device ?? cleanName(filename ?? inspection.filename),
         dateColumn: inspection.suggestions.date_column ?? '',
         timeColumn: inspection.suggestions.time_column ?? '',
         measurementColumn: recommendedColumn(inspection),
@@ -186,6 +193,7 @@ export function CollocationWorkspace() {
         temperatureColumn: '',
         humidityColumn: '',
         dayFirst: true,
+        timezone: '',
         role: 'sensor',
       } satisfies SensorFile
     }))
@@ -197,12 +205,16 @@ export function CollocationWorkspace() {
         ...file,
         role: needsReference && index === 0 ? 'reference' as const : file.role,
       }))
-      return [...current, ...normalized]
+      return [...current, ...normalized.filter((file) => !current.some((item) => item.key === file.key))]
     })
     if (!parameter && added[0]?.measurementColumn) setParameter(added[0].measurementColumn)
     if (failures.length) setError(failures[0] instanceof Error ? failures[0].message : 'One or more files could not be inspected')
     setLoadingFiles((count) => count - selected.length)
   }
+
+  const addFiles = (incoming: FileList | File[]) => addSources(
+    Array.from(incoming, (file) => ({ inspect: () => inspectUpload(file), filename: file.name })),
+  )
 
   const updateFile = (key: string, change: Partial<SensorFile>) => {
     setFiles((current) => current.map((file) => file.key === key ? { ...file, ...change } : file))
@@ -281,6 +293,7 @@ export function CollocationWorkspace() {
           temperature_column: file.temperatureColumn || null,
           humidity_column: file.humidityColumn || null,
           day_first: file.dayFirst,
+          timezone: file.timezone || null,
           role: file.role,
         })),
         quality_gates: gates,
@@ -330,7 +343,9 @@ export function CollocationWorkspace() {
             <button className="text-action" type="button" onClick={() => setResult(null)}><RotateCcw size={13} /> Edit setup</button>
             <div className="eyebrow"><FlaskConical size={14} /> Collocation report</div>
             <h1>{result.study.name}</h1>
-            <p>{result.study.parameter}{result.study.unit ? ` · ${result.study.unit}` : ''} · {new Date(result.summary.start).toLocaleDateString()} – {new Date(result.summary.end).toLocaleDateString()}</p>
+            <p>{result.study.parameter}{result.study.unit ? ` · ${result.study.unit}` : ''} · {result.study.timestamp_zone === 'UTC'
+              ? `${formatIst(result.summary.start)} – ${formatIst(result.summary.end)}`
+              : `${new Date(result.summary.start).toLocaleDateString()} – ${new Date(result.summary.end).toLocaleDateString()}`}</p>
           </div>
           <div className="heading-actions">
             <button className="button secondary" type="button" onClick={() => downloadFile('collocation-aligned.csv', resultCsv(result), 'text/csv')}><Download size={15} /> Export data</button>
@@ -435,6 +450,7 @@ export function CollocationWorkspace() {
           <section className="collocation-panel upload-panel">
             <div className="panel-heading"><div><span>Step 1</span><h2>Add sensor files</h2><p>Upload one file per sensor. Axiom reads headers and samples before anything is analyzed.</p></div><b>{files.length} files</b></div>
             <input ref={fileInput} hidden multiple type="file" accept=".csv,.tsv,.txt,.json,.xlsx,.xls" onChange={(event) => { if (event.target.files) void addFiles(event.target.files); event.target.value = '' }} />
+            <DashboardSources disabled={running || !!loadingFiles} onChoose={(id) => void addSources([{ inspect: () => inspectTransfer(id) }])} />
             {files.length === 0 ? <button className={`collocation-drop ${dragging ? 'dragging' : ''}`} type="button" onClick={() => fileInput.current?.click()} onDragEnter={(event) => { event.preventDefault(); setDragging(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); addFiles(event.dataTransfer.files) }}>
               <span><UploadCloud size={24} /></span><strong>{loadingFiles ? 'Reading column names…' : 'Drop all sensor files here'}</strong><p>or click to browse · CSV, text, JSON and Excel · 100 MB each</p><small>Files may use different column names and sampling intervals.</small>
             </button> : <>
@@ -494,6 +510,11 @@ function SensorMapping({ file, index, comparisonMode, onRole, onChange, onSheet,
     <header><span className="sensor-index">{String(index + 1).padStart(2, '0')}</span><span className="file-icon"><FileSpreadsheet size={16} /></span><div><strong>{file.inspection.filename}</strong><small>{columns.length} columns · {file.inspection.sample_rows} rows sampled</small></div>{comparisonMode === 'reference' && <select className={`sensor-role-select ${file.role}`} value={file.role} onChange={(event) => onRole(event.target.value as 'sensor' | 'reference')} aria-label={`${file.sensorName} study role`}><option value="sensor">Sensor</option><option value="reference">Reference</option></select>}<span className={file.dateColumn && file.measurementColumn ? 'mapping-status ready' : 'mapping-status'}>{file.dateColumn && file.measurementColumn ? 'Mapped' : 'Needs mapping'}</span><button type="button" onClick={onRemove} aria-label={`Remove ${file.inspection.filename}`}><Trash2 size={14} /></button></header>
     <div className="mapping-fields">
       <label><span>Sensor name</span><input value={file.sensorName} onChange={(event) => onChange({ sensorName: event.target.value })} /></label>
+      {file.inspection.source ? <p>{file.inspection.source.kind === 'raw' ? 'Logger clock: IST' : 'Export clock: UTC'}</p> : (
+        <label><span>Source time zone</span><select value={file.timezone} onChange={(event) => onChange({ timezone: event.target.value as SensorFile['timezone'] })}>
+          <option value="">Unspecified</option><option value="UTC">UTC or explicit offsets</option><option value="Asia/Kolkata">IST</option>
+        </select></label>
+      )}
       {file.inspection.sheets.length > 0 && <label><span>Worksheet</span><select value={file.inspection.selected_sheet ?? ''} onChange={(event) => onSheet(event.target.value)}>{file.inspection.sheets.map((sheet) => <option key={sheet}>{sheet}</option>)}</select></label>}
       <label><span>Timestamp column</span><select value={file.dateColumn} onChange={(event) => onChange({ dateColumn: event.target.value })}><option value="">Select column…</option>{columns.map((column) => <option key={column.name} value={column.name}>{column.name} · {column.type}</option>)}</select></label>
       <label><span>Date order</span><select value={file.dayFirst ? 'day' : 'month'} onChange={event => onChange({ dayFirst: event.target.value === 'day' })}><option value="day">Day first (DD/MM/YYYY)</option><option value="month">Month first (MM/DD/YYYY)</option></select></label>

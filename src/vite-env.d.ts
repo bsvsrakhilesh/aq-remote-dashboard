@@ -6,4 +6,5 @@ interface ImportMetaEnv {
   readonly VITE_PUBLIC_READ_ONLY?: string
   readonly VITE_DEMO_MODE?: string
   readonly VITE_APP_NAME?: string
+  readonly VITE_AXIOM_ENABLED?: string
 }

@@ -1,6 +1,8 @@
 import { ArrowLeft, CalendarDays, CloudDownload, Download, Pause, Play, RefreshCw } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMemo, useState } from 'react'
+import { AxiomMinuteExport } from '../components/AxiomTransfers'
+import { axiomEnabled } from '../services/axiom'
 import { useDevices } from '../hooks/useData'
 import { useMinuteHistory } from '../hooks/useMinuteHistory'
 import { TelemetryChart } from '../components/TelemetryChart'
@@ -296,6 +298,7 @@ export function MinuteHistoryPage() {
         Gaps may reflect missing CSV rows, unavailable sensors, or periods before the first import. Recovery files with
         an unverified clock are excluded. A partial minute uses only its available valid samples.
       </p>
+      {axiomEnabled && <AxiomMinuteExport key={`${device.id}:${date}`} deviceId={device.id} selectedDate={date} />}
     </div>
   )
 }

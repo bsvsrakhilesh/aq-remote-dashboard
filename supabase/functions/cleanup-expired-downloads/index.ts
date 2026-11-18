@@ -31,7 +31,10 @@ Deno.serve(async (request) => {
     unique.set(row.id, row)
   const rows = [...unique.values()]
   const paths = rows.map((row) => row.storage_path).filter((path): path is string => Boolean(path))
-  if (paths.length) await db.storage.from('temporary-downloads').remove(paths)
+  if (paths.length) {
+    const { error } = await db.storage.from('temporary-downloads').remove(paths)
+    if (error) return Response.json({ ok: false, error: 'cleanup_retry' }, { status: 503 })
+  }
   if (rows.length)
     await db
       .from('download_requests')

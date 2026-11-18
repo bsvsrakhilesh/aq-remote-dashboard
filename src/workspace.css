@@ -1186,3 +1186,24 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.axiom-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.axiom-job-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.axiom-job-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0;
+  overflow-wrap: anywhere;
+}

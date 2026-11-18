@@ -6,12 +6,14 @@ import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
 import type { CollocationResult } from '../types'
 import { CHART_COLORS } from './chartColors'
+import { formatIst } from '../india-time'
 
 echarts.use([LineChart, AriaComponent, DataZoomComponent, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
 export function CollocationChart({ result }: { result: CollocationResult }) {
   const element = useRef<HTMLDivElement>(null)
   const chart = useRef<echarts.ECharts | null>(null)
+  const ist = result.study.timestamp_zone === 'UTC'
   const option = useMemo<EChartsOption>(() => ({
     animationDuration: 450,
     color: CHART_COLORS,
@@ -24,9 +26,12 @@ export function CollocationChart({ result }: { result: CollocationResult }) {
       backgroundColor: '#17201c',
       borderWidth: 0,
       textStyle: { color: '#fff', fontSize: 11 },
+      axisPointer: ist ? { label: { formatter: ({ value }) => formatIst(value) } } : undefined,
       valueFormatter: (value) => `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 3 })} ${result.study.unit}`,
     },
-    xAxis: { type: 'time', axisLine: { lineStyle: { color: '#dfe3e0' } }, axisTick: { show: false }, axisLabel: { color: '#78817d', fontSize: 10 } },
+    xAxis: { type: 'time', axisLine: { lineStyle: { color: '#dfe3e0' } }, axisTick: { show: false }, axisLabel: {
+      color: '#78817d', fontSize: 10, formatter: ist ? (value: number) => formatIst(value) : undefined,
+    } },
     yAxis: { type: 'value', scale: true, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#78817d', fontSize: 10 }, splitLine: { lineStyle: { color: '#edf0ee' } } },
     dataZoom: [
       { type: 'inside', filterMode: 'none', zoomOnMouseWheel: 'shift' },
@@ -52,7 +57,7 @@ export function CollocationChart({ result }: { result: CollocationResult }) {
         z: 10,
       },
     ],
-  }), [result])
+  }), [result, ist])
 
   useEffect(() => {
     if (!element.current) return

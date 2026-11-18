@@ -98,7 +98,7 @@ test('collocation preserves setup across navigation and rejects duplicate sensor
   await expect(run).toBeDisabled()
   await expect(page.getByRole('status')).toContainText('unique name')
   await page.getByLabel('Sensor name', { exact: true }).nth(1).fill('Second')
-  await page.getByLabel('Timestamp column', { exact: true }).nth(2).selectOption('')
+  await page.getByRole('combobox', { name: 'Timestamp column', exact: true }).nth(2).selectOption('')
   await expect(run).toBeDisabled()
   await expect(page.getByRole('status')).toContainText('every file')
 })

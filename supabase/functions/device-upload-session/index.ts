@@ -32,6 +32,14 @@ Deno.serve(async (request) => {
     return json(request, { ok: false, error: 'request_not_found' }, 404)
   if (!['queued', 'device_acknowledged', 'uploading'].includes(download.status))
     return json(request, { ok: false, error: 'invalid_state' }, 409)
+  if (download.request_kind === 'axiom' && body.total_bytes! > 41943040) {
+    await auth.db
+      .from('download_requests')
+      .update({ status: 'failed', error_message: 'axiom_file_too_large' })
+      .eq('id', download.id)
+      .in('status', ['queued', 'device_acknowledged', 'uploading'])
+    return json(request, { ok: false, error: 'file_too_large' }, 413)
+  }
   const automatic = download.request_kind === 'minute_history'
   if (automatic) {
     const start = body.source_start_byte

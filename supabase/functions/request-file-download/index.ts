@@ -41,11 +41,12 @@ Deno.serve(async (request) => {
     .eq('device_id', body.device_id)
     .eq('filename', body.filename)
     .eq('created_by', user.id)
+    .eq('request_kind', 'manual')
     .in('status', ['queued', 'device_acknowledged', 'uploading', 'ready'])
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (shouldReuseDownload(active, body.refresh_ready === true))
+  if (active && shouldReuseDownload(active, body.refresh_ready === true))
     return json(request, { ok: true, request_id: active.id, status: active.status, deduplicated: true })
   const { data: download, error: requestError } = await db
     .from('download_requests')

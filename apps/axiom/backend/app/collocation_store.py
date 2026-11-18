@@ -63,6 +63,7 @@ class CollocationStore:
             "corrections": request.result.get("corrections", []),
             "quality_gates": request.result.get("quality_gates", {}),
             "warnings": request.result.get("warnings", []),
+            "provenance": request.result.get("provenance"),
         }
         session_id = uuid.uuid4().hex
         created_at = datetime.now(UTC).isoformat()
