@@ -1,0 +1,67 @@
+name: axiom
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      AXIOM_APP_DATA_DIR: /data/state
+      AXIOM_DATA_DIR: /data/input
+      AXIOM_MAX_UPLOAD_BYTES: ${AXIOM_MAX_UPLOAD_BYTES:-104857600}
+    volumes:
+      - type: bind
+        source: ${AXIOM_INPUT_DIR:-.}
+        target: /data/input
+        read_only: true
+      - axiom-state:/data/state
+    expose:
+      - "8000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client; c=http.client.HTTPConnection('::1',8000,timeout=3); c.request('GET','/api/health'); raise SystemExit(0 if c.getresponse().status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${AXIOM_PORT:-3000}:8080"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  axiom-state:
